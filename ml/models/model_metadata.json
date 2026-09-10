@@ -1,0 +1,42 @@
+{
+  "failure_model": {
+    "model_name": "Random Forest",
+    "artifact_file": "failure_pipeline.pkl",
+    "optimal_threshold": 1.0,
+    "evaluation_metrics": {}
+  },
+  "anomaly_model": {
+    "model_name": "IsolationForest",
+    "artifact_file": "anomaly_pipeline.pkl",
+    "contamination": 0.035,
+    "threshold": 0.0,
+    "training_strategy": "Trained on normal operating baseline (Machine failure == 0)"
+  },
+  "sample_input": {
+    "type": "M",
+    "air_temperature": 298.5,
+    "process_temperature": 308.6,
+    "rotational_speed": 1550,
+    "torque": 42.3,
+    "tool_wear": 120
+  },
+  "sample_output": {
+    "anomaly": {
+      "is_anomaly": false,
+      "score": 0.1245
+    },
+    "failure_prediction": {
+      "predicted_failure": false,
+      "probability": 0.0312,
+      "risk_level": "LOW"
+    }
+  },
+  "dependencies": {
+    "python": ">=3.10",
+    "scikit-learn": ">=1.2.0",
+    "joblib": ">=1.2.0",
+    "numpy": ">=1.23.0",
+    "pandas": ">=1.5.0",
+    "xgboost": ">=1.7.0"
+  }
+}

@@ -24,6 +24,19 @@ class DomainFeatureEngineer(BaseEstimator, TransformerMixin):
     def transform(self, X):
         X_out = X.copy()
         
+        # Map snake_case API contract keys to internal dataset column names if present
+        col_mapping = {
+            'type': 'Type',
+            'air_temperature': 'Air temperature [K]',
+            'process_temperature': 'Process temperature [K]',
+            'rotational_speed': 'Rotational speed [rpm]',
+            'torque': 'Torque [Nm]',
+            'tool_wear': 'Tool wear [min]'
+        }
+        renames = {k: v for k, v in col_mapping.items() if k in X_out.columns}
+        if renames:
+            X_out = X_out.rename(columns=renames)
+            
         # 1. Temperature difference (K)
         X_out['temperature_difference'] = (
             X_out['Process temperature [K]'] - X_out['Air temperature [K]']
@@ -45,7 +58,16 @@ class DomainFeatureEngineer(BaseEstimator, TransformerMixin):
     def get_feature_names_out(self, input_features=None):
         if input_features is None:
             return None
-        return list(input_features) + ['temperature_difference', 'mechanical_power_W', 'overstrain_index']
+        col_mapping = {
+            'type': 'Type',
+            'air_temperature': 'Air temperature [K]',
+            'process_temperature': 'Process temperature [K]',
+            'rotational_speed': 'Rotational speed [rpm]',
+            'torque': 'Torque [Nm]',
+            'tool_wear': 'Tool wear [min]'
+        }
+        mapped_inputs = [col_mapping.get(f, f) for f in input_features]
+        return mapped_inputs + ['temperature_difference', 'mechanical_power_W', 'overstrain_index']
 
 
 def build_preprocessing_pipeline(categorical_cols, numerical_cols):
