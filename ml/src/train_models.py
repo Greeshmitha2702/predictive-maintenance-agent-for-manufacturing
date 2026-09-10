@@ -5,182 +5,171 @@ import numpy as np
 import pandas as pd
 
 from sklearn.model_selection import StratifiedKFold, cross_validate, train_test_split
-from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
-from xgboost import XGBClassifier
 from sklearn.metrics import (
     roc_auc_score, average_precision_score, precision_score, 
-    recall_score, f1_score, classification_report, confusion_matrix
+    recall_score, f1_score
 )
 
-# Import local preprocessor builder if needed
+# Imbalanced-learn imports for leakage-free SMOTE inside CV folds
+from imblearn.pipeline import Pipeline as ImbPipeline
+from imblearn.over_sampling import SMOTE
+
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from feature_engineering import DomainFeatureEngineer, build_preprocessing_pipeline
+from feature_engineering import (
+    DomainFeatureEngineer, 
+    build_preprocessing_pipeline,
+    EXCLUDED_COLS,
+    TARGET_COL,
+    BASE_FEATURE_COLS
+)
 
-def load_data_and_preprocess(base_dir: str):
+
+def run_ml3_model_training(base_dir: str):
     """
-    Loads dataset, executes feature engineering, performs 80/20 stratified split,
-    and fits ColumnTransformer ONLY on training data.
+    ML-3 Model Training Pipeline:
+    1. Loads full cleaned dataset (~10,000 rows).
+    2. Performs 80/20 Stratified Train/Test split (test set kept untouched for ML-4).
+    3. Evaluates 2 approaches via 5-Fold Stratified K-Fold CV on training set:
+       - Approach A: Balanced Random Forest (class_weight='balanced')
+       - Approach B: SMOTE + Random Forest (SMOTE inside imblearn pipeline)
+    4. Compares CV metrics (Recall, Precision, F1, PR-AUC, ROC-AUC).
+    5. Selects winning model and fits on full training set.
+    6. Saves best model pipeline to ml/models/best_model.joblib and comparison JSON.
     """
+    print("=" * 75)
+    print(" ML-3: RANDOM FOREST MODEL TRAINING & SMOTE EXPERIMENTATION")
+    print("=" * 75)
+    
+    # 1. Ingest Full Cleaned Dataset (~10,000 rows)
     data_path = os.path.join(base_dir, "data", "cleaned_predictive_maintenance.csv")
     if not os.path.exists(data_path):
         data_path = os.path.join(base_dir, "data", "ai4i2020.csv")
         
     df = pd.read_csv(data_path)
+    print(f"Loaded full dataset from: {data_path}")
+    print(f"Dataset shape: {df.shape}")
     
-    target_col = 'Machine failure'
-    excluded_cols = ['UDI', 'Product ID', 'TWF', 'HDF', 'PWF', 'OSF', 'RNF']
-    feature_cols = [c for c in df.columns if c not in excluded_cols and c != target_col]
+    feature_cols = [c for c in df.columns if c not in EXCLUDED_COLS and c != TARGET_COL]
     
     X = df[feature_cols].copy()
-    y = df[target_col].copy()
+    y = df[TARGET_COL].copy()
     
-    # 1. Feature Engineering
-    engineer = DomainFeatureEngineer()
-    X_eng = engineer.transform(X)
+    print(f"Input features ({len(feature_cols)}): {feature_cols}")
+    print(f"Target distribution:\n{y.value_counts()}")
     
-    categorical_cols = ['Type']
-    numerical_cols = [c for c in X_eng.columns if c not in categorical_cols]
-    
-    # 2. Stratified 80/20 Train/Test Split
-    X_train_raw, X_test_raw, y_train, y_test = train_test_split(
-        X_eng, y, test_size=0.2, random_state=42, stratify=y
+    # 2. Stratified 80/20 Train/Test Split (Test set remains untouched for ML-4)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
     )
     
-    # 3. Fit Preprocessor ONLY on Training Data
-    preprocessor = build_preprocessing_pipeline(categorical_cols, numerical_cols)
-    X_train_proc = preprocessor.fit_transform(X_train_raw)
-    X_test_proc = preprocessor.transform(X_test_raw)
+    print(f"\nTrain set shape: {X_train.shape} (Failures: {y_train.sum()})")
+    print(f"Test set shape:  {X_test.shape} (Untouched for ML-4)")
     
-    feature_names = preprocessor.get_feature_names_out()
+    # 3. Define Candidate Pipelines
+    # Approach A: Balanced Random Forest Baseline
+    pipeline_a = ImbPipeline([
+        ('engineer', DomainFeatureEngineer()),
+        ('preprocessor', build_preprocessing_pipeline()),
+        ('classifier', RandomForestClassifier(
+            n_estimators=100, class_weight='balanced', random_state=42, n_jobs=-1
+        ))
+    ])
     
-    X_train = pd.DataFrame(X_train_proc, columns=feature_names)
-    X_test = pd.DataFrame(X_test_proc, columns=feature_names)
+    # Approach B: SMOTE + Random Forest (SMOTE inside imblearn pipeline to prevent leakage)
+    pipeline_b = ImbPipeline([
+        ('engineer', DomainFeatureEngineer()),
+        ('preprocessor', build_preprocessing_pipeline()),
+        ('smote', SMOTE(random_state=42)),
+        ('classifier', RandomForestClassifier(
+            n_estimators=100, random_state=42, n_jobs=-1
+        ))
+    ])
     
-    return X_train, X_test, y_train.values, y_test.values, preprocessor, feature_names
-
-
-def train_and_evaluate_models(X_train, X_test, y_train, y_test, models_dir: str):
-    """
-    Trains candidate models using 5-Fold Stratified CV on training data only.
-    Evaluates final candidate models on test set once and exports best model.
-    """
-    print("=" * 70)
-    print(" ML-3: MODEL TRAINING & COMPARATIVE EVALUATION")
-    print("=" * 70)
-    
-    # Calculate scale_pos_weight for XGBoost
-    neg_count = np.sum(y_train == 0)
-    pos_count = np.sum(y_train == 1)
-    scale_pos_weight = neg_count / pos_count
-    
-    models = {
-        "Logistic Regression": LogisticRegression(
-            class_weight='balanced', max_iter=1000, random_state=42
-        ),
-        "Decision Tree": DecisionTreeClassifier(
-            class_weight='balanced', max_depth=6, random_state=42
-        ),
-        "Random Forest": RandomForestClassifier(
-            n_estimators=100, class_weight='balanced', max_depth=10, random_state=42
-        ),
-        "XGBoost": XGBClassifier(
-            n_estimators=100, max_depth=5, scale_pos_weight=scale_pos_weight,
-            learning_rate=0.05, random_state=42, eval_metric='logloss'
-        )
+    candidate_pipelines = {
+        "Balanced Random Forest": pipeline_a,
+        "SMOTE + Random Forest": pipeline_b
     }
     
+    # 4. 5-Fold Stratified Cross-Validation on Training Set
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    scoring = ['roc_auc', 'average_precision', 'f1', 'precision', 'recall']
+    scoring = {
+        'recall': 'recall',
+        'precision': 'precision',
+        'f1': 'f1',
+        'pr_auc': 'average_precision',
+        'roc_auc': 'roc_auc'
+    }
     
-    cv_results_summary = []
-    trained_models = {}
+    cv_comparison = []
     
-    print("\n--- Phase 1: 5-Fold Stratified Cross-Validation (Training Set Only) ---")
-    for name, model in models.items():
-        cv_res = cross_validate(model, X_train, y_train, cv=skf, scoring=scoring)
+    print("\n--- 5-Fold Stratified Cross-Validation (Training Set Only) ---")
+    for name, pipeline in candidate_pipelines.items():
+        cv_res = cross_validate(pipeline, X_train, y_train, cv=skf, scoring=scoring, n_jobs=-1)
         
-        auc_mean = np.mean(cv_res['test_roc_auc'])
-        auc_std = np.std(cv_res['test_roc_auc'])
-        pr_auc_mean = np.mean(cv_res['test_average_precision'])
-        f1_mean = np.mean(cv_res['test_f1'])
-        prec_mean = np.mean(cv_res['test_precision'])
         rec_mean = np.mean(cv_res['test_recall'])
+        prec_mean = np.mean(cv_res['test_precision'])
+        f1_mean = np.mean(cv_res['test_f1'])
+        pr_auc_mean = np.mean(cv_res['test_pr_auc'])
+        roc_auc_mean = np.mean(cv_res['test_roc_auc'])
         
-        cv_results_summary.append({
+        cv_comparison.append({
             "Model": name,
-            "CV ROC-AUC": f"{auc_mean:.4f} ± {auc_std:.4f}",
-            "CV PR-AUC": f"{pr_auc_mean:.4f}",
-            "CV F1-Score": f"{f1_mean:.4f}",
-            "CV Precision": f"{prec_mean:.4f}",
-            "CV Recall": f"{rec_mean:.4f}"
+            "CV Recall": round(rec_mean, 4),
+            "CV Precision": round(prec_mean, 4),
+            "CV F1": round(f1_mean, 4),
+            "CV PR-AUC": round(pr_auc_mean, 4),
+            "CV ROC-AUC": round(roc_auc_mean, 4)
         })
         
-        # Fit model on full training set for test evaluation
-        model.fit(X_train, y_train)
-        trained_models[name] = model
-
-    cv_df = pd.DataFrame(cv_results_summary)
-    print(cv_df.to_string(index=False))
-
-    print("\n--- Phase 2: Final Holdout Test Set Evaluation (Evaluated Once) ---")
-    test_results = []
-    best_model_name = None
-    best_test_auc = -1.0
+    comp_df = pd.DataFrame(cv_comparison)
+    print("\nModel Cross-Validation Comparison Table:")
+    print(comp_df.to_string(index=False))
     
-    for name, model in trained_models.items():
-        y_pred = model.predict(X_test)
-        y_prob = model.predict_proba(X_test)[:, 1]
-        
-        test_auc = roc_auc_score(y_test, y_prob)
-        test_pr_auc = average_precision_score(y_test, y_prob)
-        test_f1 = f1_score(y_test, y_pred)
-        test_prec = precision_score(y_test, y_pred)
-        test_rec = recall_score(y_test, y_pred)
-        
-        test_results.append({
-            "Model": name,
-            "Test ROC-AUC": round(test_auc, 4),
-            "Test PR-AUC": round(test_pr_auc, 4),
-            "Test F1-Score": round(test_f1, 4),
-            "Test Precision": round(test_prec, 4),
-            "Test Recall": round(test_rec, 4)
-        })
-        
-        if test_auc > best_test_auc:
-            best_test_auc = test_auc
-            best_model_name = name
-
-    test_df = pd.DataFrame(test_results)
-    print(test_df.to_string(index=False))
+    # 5. Model Selection based on CV Metrics (Emphasis on PR-AUC, F1, Recall)
+    # Sort by PR-AUC and F1-Score
+    sorted_df = comp_df.sort_values(by=['CV PR-AUC', 'CV F1', 'CV Recall'], ascending=False)
+    winning_model_name = sorted_df.iloc[0]['Model']
+    winning_pipeline = candidate_pipelines[winning_model_name]
     
-    print(f"\n★ Selected Candidate Model for ML-4 Explainability: {best_model_name} (Test ROC-AUC: {best_test_auc:.4f}) ★\n")
+    print(f"\n★ Winner Selected via CV Evidence: '{winning_model_name}' ★")
+    print("  Rationale: Selected for highest PR-AUC and F1-Score on minority failure class during 5-fold CV.\n")
     
-    # Save artifacts for ML-4 (XAI)
-    os.makedirs(models_dir, exist_ok=True)
-    best_model_path = os.path.join(models_dir, "best_model.joblib")
-    joblib.dump(trained_models[best_model_name], best_model_path)
-    print(f"Best model artifact saved to: {best_model_path}")
+    # 6. Fit Winning Pipeline on Entire Training Set & Save Artifacts
+    print(f"Fitting winning pipeline ('{winning_model_name}') on complete 80% training set...")
+    winning_pipeline.fit(X_train, y_train)
     
-    results_json_path = os.path.join(models_dir, "model_results.json")
-    with open(results_json_path, "w") as f:
-        json.dump({
-            "best_model": best_model_name,
-            "cv_results": cv_results_summary,
-            "test_results": test_results
-        }, f, indent=2)
-    print(f"Results summary saved to: {results_json_path}")
-    print("=" * 70)
-
-
-def main():
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     models_dir = os.path.join(base_dir, "ml", "models")
+    os.makedirs(models_dir, exist_ok=True)
     
-    X_train, X_test, y_train, y_test, preprocessor, feature_names = load_data_and_preprocess(base_dir)
-    train_and_evaluate_models(X_train, X_test, y_train, y_test, models_dir)
+    # Extract feature names for SHAP
+    preprocessor = winning_pipeline.named_steps['preprocessor']
+    feature_names = list(preprocessor.get_feature_names_out())
+    
+    model_artifact = {
+        "pipeline": winning_pipeline,
+        "model_name": winning_model_name,
+        "feature_names": feature_names,
+        "input_feature_cols": feature_cols,
+        "cv_metrics": sorted_df.iloc[0].to_dict()
+    }
+    
+    best_model_path = os.path.join(models_dir, "best_model.joblib")
+    joblib.dump(model_artifact, best_model_path)
+    print(f"Saved winning model artifact to: {best_model_path}")
+    
+    # Save CV comparison JSON
+    cv_json_path = os.path.join(models_dir, "cv_model_comparison.json")
+    with open(cv_json_path, "w") as f:
+        json.dump({
+            "winning_model": winning_model_name,
+            "cv_comparison": cv_comparison
+        }, f, indent=2)
+    print(f"Saved CV comparison results to: {cv_json_path}")
+    print("=" * 75)
+
 
 if __name__ == "__main__":
-    main()
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    run_ml3_model_training(base_dir)

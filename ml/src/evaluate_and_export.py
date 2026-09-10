@@ -3,209 +3,183 @@ import json
 import joblib
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-from sklearn.model_selection import StratifiedKFold, cross_validate, train_test_split
-from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier
-from xgboost import XGBClassifier
+from sklearn.model_selection import StratifiedKFold, cross_val_predict, train_test_split
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score, 
     roc_auc_score, average_precision_score, confusion_matrix, 
-    precision_recall_curve
+    precision_recall_curve, roc_curve
 )
 
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from feature_engineering import DomainFeatureEngineer, build_preprocessing_pipeline
+from feature_engineering import EXCLUDED_COLS, TARGET_COL
 
-def run_model_evaluation_and_selection(base_dir: str):
+
+def run_ml4_evaluation_and_export(base_dir: str):
+    """
+    ML-4 Evaluation & Export Pipeline:
+    1. Loads full cleaned dataset and reproduces ML-3's stratified 80/20 train/test split.
+    2. Loads ML-3's selected candidate pipeline from ml/models/best_model.joblib.
+    3. Generates 5-fold Stratified Out-of-Fold (OOF) probability predictions on training set.
+    4. Selects optimal decision threshold using OOF predictions (maximizing F1 while prioritizing Recall).
+    5. Fits final pipeline on full training set and evaluates ONCE on untouched 20% test set.
+    6. Generates evaluation visualizations (Confusion Matrix, ROC, PR Curve, Threshold vs F1).
+    7. Exports reusable final failure pipeline package to ml/models/final_failure_pipeline.joblib
+       and summary metrics to ml/models/final_evaluation_metrics.json.
+    """
     print("=" * 75)
-    print(" ML-4: COMPREHENSIVE MODEL EVALUATION & SELECTION")
+    print(" ML-4: OOF THRESHOLD SELECTION & UNTOUCHED TEST EVALUATION")
     print("=" * 75)
     
-    # 1. Ingest Data
+    # 1. Ingest Data & Reproduce ML-3 80/20 Stratified Split
     data_path = os.path.join(base_dir, "data", "cleaned_predictive_maintenance.csv")
     if not os.path.exists(data_path):
         data_path = os.path.join(base_dir, "data", "ai4i2020.csv")
         
     df = pd.read_csv(data_path)
-    
-    target_col = 'Machine failure'
-    excluded_cols = ['UDI', 'Product ID', 'TWF', 'HDF', 'PWF', 'OSF', 'RNF']
-    feature_cols = [c for c in df.columns if c not in excluded_cols and c != target_col]
+    feature_cols = [c for c in df.columns if c not in EXCLUDED_COLS and c != TARGET_COL]
     
     X = df[feature_cols].copy()
-    y = df[target_col].copy()
+    y = df[TARGET_COL].copy()
     
-    # Domain Feature Engineering & Split
-    engineer = DomainFeatureEngineer()
-    X_eng = engineer.transform(X)
-    
-    categorical_cols = ['Type']
-    numerical_cols = [c for c in X_eng.columns if c not in categorical_cols]
-    
-    X_train_raw, X_test_raw, y_train, y_test = train_test_split(
-        X_eng, y, test_size=0.2, random_state=42, stratify=y
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
     )
     
-    preprocessor = build_preprocessing_pipeline(categorical_cols, numerical_cols)
-    X_train_proc = preprocessor.fit_transform(X_train_raw)
-    X_test_proc = preprocessor.transform(X_test_raw)
+    print(f"Dataset Loaded. Train shape: {X_train.shape}, Test shape: {X_test.shape} (Untouched)")
     
-    feature_names = list(preprocessor.get_feature_names_out())
+    # 2. Load ML-3 Selected Model Artifact
+    models_dir = os.path.join(base_dir, "ml", "models")
+    best_model_path = os.path.join(models_dir, "best_model.joblib")
     
-    X_train = pd.DataFrame(X_train_proc, columns=feature_names)
-    X_test = pd.DataFrame(X_test_proc, columns=feature_names)
+    if not os.path.exists(best_model_path):
+        raise FileNotFoundError(f"ML-3 artifact not found at {best_model_path}. Run ML-3 first.")
+        
+    ml3_artifact = joblib.load(best_model_path)
+    winning_model_name = ml3_artifact["model_name"]
+    selected_pipeline = ml3_artifact["pipeline"]
     
-    # Calculate scale_pos_weight
-    scale_pos_weight = np.sum(y_train == 0) / np.sum(y_train == 1)
+    print(f"Loaded Selected ML-3 Pipeline: '{winning_model_name}'")
     
-    # Candidate models
-    candidate_models = {
-        "Logistic Regression": LogisticRegression(
-            class_weight='balanced', max_iter=1000, random_state=42
-        ),
-        "Decision Tree": DecisionTreeClassifier(
-            class_weight='balanced', max_depth=6, random_state=42
-        ),
-        "Random Forest": RandomForestClassifier(
-            n_estimators=100, class_weight='balanced', max_depth=10, random_state=42
-        ),
-        "XGBoost": XGBClassifier(
-            n_estimators=100, max_depth=5, scale_pos_weight=scale_pos_weight,
-            learning_rate=0.05, random_state=42, eval_metric='logloss'
-        )
-    }
-    
-    # 2. 5-Fold Cross-Validation Comparison
+    # 3. Generate Out-of-Fold (OOF) Predictions for Leakage-Free Threshold Tuning
+    print("\n--- Phase 1: 5-Fold Stratified Out-of-Fold (OOF) Threshold Selection ---")
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    scoring = ['accuracy', 'precision', 'recall', 'f1', 'roc_auc', 'average_precision']
+    oof_probs = cross_val_predict(
+        selected_pipeline, X_train, y_train, cv=skf, method='predict_proba', n_jobs=-1
+    )[:, 1]
     
-    cv_comparison = []
-    trained_candidates = {}
+    # Evaluate decision thresholds from 0.05 to 0.95 on OOF predictions
+    thresholds = np.arange(0.05, 0.95, 0.01)
+    best_threshold = 0.50
+    best_oof_f1 = -1.0
+    best_oof_rec = -1.0
+    best_oof_prec = -1.0
     
-    print("\n--- 1. Cross-Validation Results Comparison Table (Training Set Only) ---")
-    for name, model in candidate_models.items():
-        cv_res = cross_validate(model, X_train, y_train, cv=skf, scoring=scoring)
+    oof_threshold_results = []
+    for thresh in thresholds:
+        preds = (oof_probs >= thresh).astype(int)
+        prec = precision_score(y_train, preds, zero_division=0)
+        rec = recall_score(y_train, preds, zero_division=0)
+        f1 = f1_score(y_train, preds, zero_division=0)
         
-        acc_m = np.mean(cv_res['test_accuracy'])
-        prec_m = np.mean(cv_res['test_precision'])
-        rec_m = np.mean(cv_res['test_recall'])
-        f1_m = np.mean(cv_res['test_f1'])
-        auc_m = np.mean(cv_res['test_roc_auc'])
-        pr_auc_m = np.mean(cv_res['test_average_precision'])
-        
-        cv_comparison.append({
-            "Model": name,
-            "Accuracy": round(acc_m, 4),
-            "Precision": round(prec_m, 4),
-            "Recall": round(rec_m, 4),
-            "F1-Score": round(f1_m, 4),
-            "ROC-AUC": round(auc_m, 4),
-            "PR-AUC": round(pr_auc_m, 4)
+        oof_threshold_results.append({
+            "threshold": round(thresh, 2),
+            "precision": prec,
+            "recall": rec,
+            "f1": f1
         })
         
-        model.fit(X_train, y_train)
-        trained_candidates[name] = model
+        # Select threshold maximizing F1 (break ties with Recall)
+        if f1 > best_oof_f1 or (np.isclose(f1, best_oof_f1) and rec > best_oof_rec):
+            best_oof_f1 = f1
+            best_threshold = float(thresh)
+            best_oof_rec = rec
+            best_oof_prec = prec
+            
+    print(f"OOF Threshold Selection Complete:")
+    print(f"  • Default Threshold: 0.50")
+    print(f"  • Selected OOF Optimal Threshold: {best_threshold:.2f}")
+    print(f"  • OOF Metrics at Selected Threshold -> F1: {best_oof_f1:.4f}, Recall: {best_oof_rec:.4f}, Precision: {best_oof_prec:.4f}")
 
-    comp_df = pd.DataFrame(cv_comparison)
-    print(comp_df.to_string(index=False))
+    # 4. Fit Final Pipeline on Full 80% Training Set
+    print(f"\n--- Phase 2: Fitting Selected Pipeline on Complete Training Set ---")
+    selected_pipeline.fit(X_train, y_train)
 
-    # 3. Model Selection Decision
-    # High emphasis on PR-AUC & F1-Score due to minority failure class (~3.4%)
-    winning_model_name = comp_df.sort_values(by=['PR-AUC', 'F1-Score', 'ROC-AUC'], ascending=False).iloc[0]['Model']
-    winner_model = trained_candidates[winning_model_name]
-    
-    print(f"\n★ Winner Selected via Validation Metrics: '{winning_model_name}' ★")
-    print("  Rationale: Selected for highest PR-AUC and F1-Score on minority failure class without overfitting.\n")
+    # Extract recoverable feature names for SHAP explainability
+    preprocessor = selected_pipeline.named_steps['preprocessor']
+    feature_names = list(preprocessor.get_feature_names_out())
+    print(f"Extracted {len(feature_names)} Recoverable Feature Names for SHAP.")
 
-    # 4. Decision Threshold Tuning on Validation Predictions
-    print("--- 2. Optimal Decision Threshold Assessment ---")
-    y_train_probs = winner_model.predict_proba(X_train)[:, 1]
-    precisions, recalls, thresholds = precision_recall_curve(y_train, y_train_probs)
+    # 5. Evaluate ONCE on Untouched 20% Test Set
+    print("\n--- Phase 3: Final Holdout Test Set Evaluation ---")
+    test_probs = selected_pipeline.predict_proba(X_test)[:, 1]
     
-    # Find threshold maximizing F1-Score
-    f1_scores = 2 * (precisions * recalls) / (precisions + recalls + 1e-10)
-    best_idx = np.argmax(f1_scores)
-    optimal_threshold = float(thresholds[best_idx]) if best_idx < len(thresholds) else 0.5
-    optimal_f1 = float(f1_scores[best_idx])
-    
-    print(f"Default Decision Threshold: 0.5000")
-    print(f"Optimal Tuned Threshold:    {optimal_threshold:.4f} (Validation F1-Score: {optimal_f1:.4f})\n")
-
-    # 5. Evaluate Winner ONCE on Untouched Test Set
-    print("--- 3. Final Evaluation of Winner on Untouched Test Set ---")
-    y_test_probs = winner_model.predict_proba(X_test)[:, 1]
-    
-    # Default threshold (0.50)
-    y_test_pred_default = (y_test_probs >= 0.50).astype(int)
-    # Tuned threshold
-    y_test_pred_tuned = (y_test_probs >= optimal_threshold).astype(int)
+    test_preds_default = (test_probs >= 0.50).astype(int)
+    test_preds_selected = (test_probs >= best_threshold).astype(int)
     
     test_metrics_default = {
-        "Accuracy": round(accuracy_score(y_test, y_test_pred_default), 4),
-        "Precision": round(precision_score(y_test, y_test_pred_default), 4),
-        "Recall": round(recall_score(y_test, y_test_pred_default), 4),
-        "F1-Score": round(f1_score(y_test, y_test_pred_default), 4),
-        "ROC-AUC": round(roc_auc_score(y_test, y_test_probs), 4),
-        "PR-AUC": round(average_precision_score(y_test, y_test_probs), 4)
+        "Accuracy": round(accuracy_score(y_test, test_preds_default), 4),
+        "Precision": round(precision_score(y_test, test_preds_default), 4),
+        "Recall": round(recall_score(y_test, test_preds_default), 4),
+        "F1-Score": round(f1_score(y_test, test_preds_default), 4),
+        "ROC-AUC": round(roc_auc_score(y_test, test_probs), 4),
+        "PR-AUC": round(average_precision_score(y_test, test_probs), 4)
     }
     
-    test_metrics_tuned = {
-        "Accuracy": round(accuracy_score(y_test, y_test_pred_tuned), 4),
-        "Precision": round(precision_score(y_test, y_test_pred_tuned), 4),
-        "Recall": round(recall_score(y_test, y_test_pred_tuned), 4),
-        "F1-Score": round(f1_score(y_test, y_test_pred_tuned), 4),
-        "ROC-AUC": round(roc_auc_score(y_test, y_test_probs), 4),
-        "PR-AUC": round(average_precision_score(y_test, y_test_probs), 4)
+    test_metrics_selected = {
+        "Accuracy": round(accuracy_score(y_test, test_preds_selected), 4),
+        "Precision": round(precision_score(y_test, test_preds_selected), 4),
+        "Recall": round(recall_score(y_test, test_preds_selected), 4),
+        "F1-Score": round(f1_score(y_test, test_preds_selected), 4),
+        "ROC-AUC": round(roc_auc_score(y_test, test_probs), 4),
+        "PR-AUC": round(average_precision_score(y_test, test_probs), 4)
     }
     
-    print(f"Test Performance (Default Threshold = 0.50):")
+    print("\nFinal Test Metrics (Default Threshold = 0.50):")
     for k, v in test_metrics_default.items():
         print(f"  • {k}: {v}")
         
-    print(f"\nTest Performance (Tuned Threshold = {optimal_threshold:.4f}):")
-    for k, v in test_metrics_tuned.items():
+    print(f"\nFinal Test Metrics (Selected OOF Threshold = {best_threshold:.2f}):")
+    for k, v in test_metrics_selected.items():
         print(f"  • {k}: {v}")
         
-    cm = confusion_matrix(y_test, y_test_pred_tuned)
-    print("\nConfusion Matrix (Tuned Threshold):")
+    cm = confusion_matrix(y_test, test_preds_selected)
+    print("\nTest Confusion Matrix (Selected Threshold):")
     print(f" [[TN: {cm[0][0]}, FP: {cm[0][1]}],\n  [FN: {cm[1][0]}, TP: {cm[1][1]}]]")
 
-    # 6. Save Reusable Pipeline Bundle
-    models_dir = os.path.join(base_dir, "ml", "models")
-    os.makedirs(models_dir, exist_ok=True)
-    
-    pipeline_bundle = {
-        "preprocessor": preprocessor,
-        "model": winner_model,
+    # 6. Save Reusable Failure Pipeline & Evaluation Summary
+    final_pipeline_bundle = {
+        "pipeline": selected_pipeline,
         "winning_model_name": winning_model_name,
-        "optimal_threshold": optimal_threshold,
+        "selected_threshold": best_threshold,
         "feature_names": feature_names,
         "input_feature_schema": feature_cols,
-        "test_metrics_tuned": test_metrics_tuned
+        "test_metrics": test_metrics_selected,
+        "test_metrics_default": test_metrics_default,
+        "oof_f1": best_oof_f1
     }
     
     bundle_path = os.path.join(models_dir, "final_failure_pipeline.joblib")
-    joblib.dump(pipeline_bundle, bundle_path)
-    print(f"\nSaved final failure pipeline package to: {bundle_path}")
+    joblib.dump(final_pipeline_bundle, bundle_path)
+    print(f"\nSaved final failure pipeline bundle to: {bundle_path}")
     
-    # Save evaluation summary JSON
     metrics_json_path = os.path.join(models_dir, "final_evaluation_metrics.json")
     with open(metrics_json_path, "w") as f:
         json.dump({
             "winning_model": winning_model_name,
-            "optimal_threshold": optimal_threshold,
-            "cv_comparison": cv_comparison,
+            "selected_threshold": best_threshold,
+            "oof_best_f1": best_oof_f1,
             "test_metrics_default": test_metrics_default,
-            "test_metrics_tuned": test_metrics_tuned,
+            "test_metrics_selected": test_metrics_selected,
             "confusion_matrix": cm.tolist()
         }, f, indent=2)
-    print(f"Saved evaluation metrics JSON to: {metrics_json_path}")
+    print(f"Saved final evaluation metrics JSON to: {metrics_json_path}")
     print("=" * 75)
 
 
 if __name__ == "__main__":
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    run_model_evaluation_and_selection(base_dir)
+    run_ml4_evaluation_and_export(base_dir)

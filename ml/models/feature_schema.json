@@ -1,0 +1,54 @@
+{
+  "api_input_features": [
+    "type",
+    "air_temperature",
+    "process_temperature",
+    "rotational_speed",
+    "torque",
+    "tool_wear"
+  ],
+  "feature_types": {
+    "type": "string (categorical: L, M, H)",
+    "air_temperature": "float (Kelvin)",
+    "process_temperature": "float (Kelvin)",
+    "rotational_speed": "float/int (rpm)",
+    "torque": "float (Nm)",
+    "tool_wear": "float/int (min)"
+  },
+  "raw_dataset_columns": [
+    "Type",
+    "Air temperature [K]",
+    "Process temperature [K]",
+    "Rotational speed [rpm]",
+    "Torque [Nm]",
+    "Tool wear [min]"
+  ],
+  "engineered_domain_features": [
+    "temperature_difference",
+    "mechanical_power_W",
+    "overstrain_index"
+  ],
+  "preprocessed_model_features": [
+    "Type_H",
+    "Type_L",
+    "Type_M",
+    "Air temperature [K]",
+    "Process temperature [K]",
+    "Rotational speed [rpm]",
+    "Torque [Nm]",
+    "Tool wear [min]",
+    "temperature_difference",
+    "mechanical_power_W",
+    "overstrain_index"
+  ],
+  "target_column": "Machine failure",
+  "excluded_columns": [
+    "UDI",
+    "Product ID",
+    "TWF",
+    "HDF",
+    "PWF",
+    "OSF",
+    "RNF"
+  ]
+}

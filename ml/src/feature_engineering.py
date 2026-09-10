@@ -1,19 +1,55 @@
 import os
-import joblib
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.pipeline import Pipeline
-from sklearn.model_selection import train_test_split
+
+# 1. Feature Name Constants
+EXCLUDED_COLS = ['UDI', 'Product ID', 'TWF', 'HDF', 'PWF', 'OSF', 'RNF']
+TARGET_COL = 'Machine failure'
+BASE_FEATURE_COLS = [
+    'Type', 
+    'Air temperature [K]', 
+    'Process temperature [K]', 
+    'Rotational speed [rpm]', 
+    'Torque [Nm]', 
+    'Tool wear [min]'
+]
+CATEGORICAL_COLS = ['Type']
+NUMERICAL_BASE_COLS = [
+    'Air temperature [K]', 
+    'Process temperature [K]', 
+    'Rotational speed [rpm]', 
+    'Torque [Nm]', 
+    'Tool wear [min]'
+]
+ENGINEERED_COLS = [
+    'temperature_difference', 
+    'mechanical_power_W', 
+    'overstrain_index'
+]
+ALL_NUMERICAL_COLS = NUMERICAL_BASE_COLS + ENGINEERED_COLS
+
+SNAKE_CASE_MAPPING = {
+    'type': 'Type',
+    'air_temperature': 'Air temperature [K]',
+    'process_temperature': 'Process temperature [K]',
+    'rotational_speed': 'Rotational speed [rpm]',
+    'torque': 'Torque [Nm]',
+    'tool_wear': 'Tool wear [min]'
+}
+
 
 class DomainFeatureEngineer(BaseEstimator, TransformerMixin):
     """
     Custom Scikit-Learn Transformer to construct physical domain features:
-    1. Temperature Difference: Process Temperature - Air Temperature (in K)
-    2. Mechanical Power (W): Torque [Nm] * Rotational Speed [rpm] * (2 * pi / 60)
-    3. Overstrain Index: Tool Wear [min] * Torque [Nm]
+    1. temperature_difference = Process temperature [K] - Air temperature [K]
+    2. mechanical_power_W = Torque [Nm] * Rotational speed [rpm] * (2 * pi / 60)
+    3. overstrain_index = Tool wear [min] * Torque [Nm]
+    
+    Supports both raw dataset column names and backend API snake_case keys.
     """
     def __init__(self):
         pass
@@ -23,14 +59,20 @@ class DomainFeatureEngineer(BaseEstimator, TransformerMixin):
 
     def transform(self, X):
         X_out = X.copy()
-        
+        if isinstance(X_out, np.ndarray):
+            X_out = pd.DataFrame(X_out, columns=BASE_FEATURE_COLS)
+            
+        # Map snake_case API contract keys to internal dataset column names if present
+        renames = {k: v for k, v in SNAKE_CASE_MAPPING.items() if k in X_out.columns}
+        if renames:
+            X_out = X_out.rename(columns=renames)
+            
         # 1. Temperature difference (K)
         X_out['temperature_difference'] = (
             X_out['Process temperature [K]'] - X_out['Air temperature [K]']
         )
         
         # 2. Mechanical Power (Watts) = Torque (Nm) * Angular Velocity (rad/s)
-        # rad/s = rpm * (2 * pi / 60)
         X_out['mechanical_power_W'] = (
             X_out['Torque [Nm]'] * X_out['Rotational speed [rpm]'] * (2 * np.pi / 60.0)
         )
@@ -44,16 +86,22 @@ class DomainFeatureEngineer(BaseEstimator, TransformerMixin):
 
     def get_feature_names_out(self, input_features=None):
         if input_features is None:
-            return None
-        return list(input_features) + ['temperature_difference', 'mechanical_power_W', 'overstrain_index']
+            return BASE_FEATURE_COLS + ENGINEERED_COLS
+        mapped_inputs = [SNAKE_CASE_MAPPING.get(f, f) for f in input_features]
+        return mapped_inputs + ENGINEERED_COLS
 
 
-def build_preprocessing_pipeline(categorical_cols, numerical_cols):
+def build_preprocessing_pipeline(categorical_cols=None, numerical_cols=None):
     """
     Builds a reusable Scikit-Learn ColumnTransformer that:
     - One-hot encodes categorical variables ('Type').
     - Standardizes numerical features while preserving exact feature names for SHAP.
     """
+    if categorical_cols is None:
+        categorical_cols = CATEGORICAL_COLS
+    if numerical_cols is None:
+        numerical_cols = ALL_NUMERICAL_COLS
+        
     preprocessor = ColumnTransformer(
         transformers=[
             ('cat', OneHotEncoder(sparse_output=False, handle_unknown='ignore'), categorical_cols),
@@ -62,105 +110,18 @@ def build_preprocessing_pipeline(categorical_cols, numerical_cols):
         remainder='passthrough',
         verbose_feature_names_out=False
     )
-    
     return preprocessor
 
 
-def process_and_save_data(input_csv_path: str, models_dir: str, data_dir: str):
+def build_full_feature_pipeline(categorical_cols=None, numerical_cols=None):
     """
-    Full reproducible pipeline for loading clean data, feature engineering,
-    train/test splitting, fitting preprocessor ONLY on train set, and saving artifacts.
+    Returns an un-fitted Scikit-Learn Pipeline combining domain feature engineering 
+    and ColumnTransformer preprocessing, ready for ML-3 cross-validation and imblearn pipeline.
     """
-    print("=" * 65)
-    print(" 1. LOADING CLEANED DATASET")
-    print("=" * 65)
-    df = pd.read_csv(input_csv_path)
-    print(f"Loaded dataset from: {input_csv_path}")
-    print(f"Raw shape: {df.shape}")
-
-    # Exclude IDs & Leakage Columns (TWF, HDF, PWF, OSF, RNF)
-    target_col = 'Machine failure'
-    excluded_cols = ['UDI', 'Product ID', 'TWF', 'HDF', 'PWF', 'OSF', 'RNF']
-    
-    feature_cols = [c for c in df.columns if c not in excluded_cols and c != target_col]
-    
-    X = df[feature_cols].copy()
-    y = df[target_col].copy()
-
-    print(f"Features ({len(feature_cols)}): {feature_cols}")
-    print(f"Target: {target_col}")
-
-    # Step 1: Apply Domain Feature Engineering
-    print("\n" + "=" * 65)
-    print(" 2. APPLYING DOMAIN FEATURE ENGINEERING")
-    print("=" * 65)
-    engineer = DomainFeatureEngineer()
-    X_engineered = engineer.transform(X)
-    
-    engineered_feature_list = engineer.get_feature_names_out(feature_cols)
-    print("Features after domain engineering:")
-    for f in engineered_feature_list:
-        print(f"  - {f}")
-
-    # Categorical and Numerical grouping
-    categorical_cols = ['Type']
-    numerical_cols = [c for c in X_engineered.columns if c not in categorical_cols]
-
-    # Step 2: Train/Test Split (Stratified 80/20 split)
-    print("\n" + "=" * 65)
-    print(" 3. STRATIFIED TRAIN/TEST SPLIT (80/20)")
-    print("=" * 65)
-    X_train_raw, X_test_raw, y_train, y_test = train_test_split(
-        X_engineered, y, test_size=0.2, random_state=42, stratify=y
-    )
-    print(f"X_train raw shape: {X_train_raw.shape}")
-    print(f"X_test raw shape:  {X_test_raw.shape}")
-    print(f"y_train distribution:\n{y_train.value_counts(normalize=True)}")
-
-    # Step 3: Fit ColumnTransformer ONLY on Training Data
-    print("\n" + "=" * 65)
-    print(" 4. FITTING PREPROCESSOR ON TRAINING SET ONLY")
-    print("=" * 65)
-    preprocessor = build_preprocessing_pipeline(categorical_cols, numerical_cols)
-    
-    # Fit & Transform Train, Transform Test
-    X_train_proc = preprocessor.fit_transform(X_train_raw)
-    X_test_proc = preprocessor.transform(X_test_raw)
-    
-    # Recover exact feature names for SHAP explainability
-    feature_names = preprocessor.get_feature_names_out()
-    print("Final Processed Feature Names (SHAP Recoverable):")
-    for name in feature_names:
-        print(f"  • {name}")
-
-    # Convert back to DataFrame with recovered feature names
-    X_train_df = pd.DataFrame(X_train_proc, columns=feature_names)
-    X_test_df = pd.DataFrame(X_test_proc, columns=feature_names)
-
-    # Step 4: Save Artifacts & Processed Data
-    print("\n" + "=" * 65)
-    print(" 5. SAVING PREPROCESSOR & PROCESSED DATASETS")
-    print("=" * 65)
-    os.makedirs(models_dir, exist_ok=True)
-    os.makedirs(data_dir, exist_ok=True)
-
-    preprocessor_path = os.path.join(models_dir, "preprocessor.joblib")
-    joblib.dump(preprocessor, preprocessor_path)
-    print(f"Saved fitted preprocessor object to: {preprocessor_path}")
-
-    # Save processed CSVs
-    X_train_df.to_csv(os.path.join(data_dir, "X_train_processed.csv"), index=False)
-    X_test_df.to_csv(os.path.join(data_dir, "X_test_processed.csv"), index=False)
-    y_train.to_csv(os.path.join(data_dir, "y_train.csv"), index=False)
-    y_test.to_csv(os.path.join(data_dir, "y_test.csv"), index=False)
-    
-    print(f"Saved processed dataset splits to: {data_dir}")
-    print("  - X_train_processed.csv")
-    print("  - X_test_processed.csv")
-    print("  - y_train.csv")
-    print("  - y_test.csv")
-    print("=" * 65)
-    print("Feature Engineering & Preprocessing Complete!")
+    return Pipeline([
+        ('engineer', DomainFeatureEngineer()),
+        ('preprocessor', build_preprocessing_pipeline(categorical_cols, numerical_cols))
+    ])
 
 
 if __name__ == "__main__":
@@ -169,7 +130,16 @@ if __name__ == "__main__":
     if not os.path.exists(clean_data_path):
         clean_data_path = os.path.join(base_dir, "data", "ai4i2020.csv")
     
-    models_directory = os.path.join(base_dir, "ml", "models")
-    data_directory = os.path.join(base_dir, "data")
+    print("Testing ML-2 Feature Engineering & Preprocessing Utilities...")
+    df = pd.read_csv(clean_data_path)
+    X = df[BASE_FEATURE_COLS].copy()
     
-    process_and_save_data(clean_data_path, models_directory, data_directory)
+    pipeline = build_full_feature_pipeline()
+    X_processed = pipeline.fit_transform(X)
+    
+    feature_names = pipeline.named_steps['preprocessor'].get_feature_names_out()
+    print(f"Original Input Shape: {X.shape}")
+    print(f"Processed Output Shape: {X_processed.shape}")
+    print("Recoverable Feature Names for SHAP:")
+    for name in feature_names:
+        print(f"  • {name}")
