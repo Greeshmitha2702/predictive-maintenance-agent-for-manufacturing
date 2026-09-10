@@ -1,0 +1,31 @@
+{
+  "winning_model": "Balanced Random Forest",
+  "selected_threshold": 0.49000000000000005,
+  "oof_best_f1": 0.867704280155642,
+  "test_metrics_default": {
+    "Accuracy": 0.992,
+    "Precision": 0.9483,
+    "Recall": 0.8088,
+    "F1-Score": 0.873,
+    "ROC-AUC": 0.974,
+    "PR-AUC": 0.8683
+  },
+  "test_metrics_selected": {
+    "Accuracy": 0.992,
+    "Precision": 0.9483,
+    "Recall": 0.8088,
+    "F1-Score": 0.873,
+    "ROC-AUC": 0.974,
+    "PR-AUC": 0.8683
+  },
+  "confusion_matrix": [
+    [
+      1929,
+      3
+    ],
+    [
+      13,
+      55
+    ]
+  ]
+}

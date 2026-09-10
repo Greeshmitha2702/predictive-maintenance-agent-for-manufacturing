@@ -1,9 +1,16 @@
 {
   "failure_model": {
-    "model_name": "Random Forest",
+    "model_name": "Balanced Random Forest",
     "artifact_file": "failure_pipeline.pkl",
-    "optimal_threshold": 1.0,
-    "evaluation_metrics": {}
+    "optimal_threshold": 0.49000000000000005,
+    "evaluation_metrics": {
+      "Accuracy": 0.992,
+      "Precision": 0.9483,
+      "Recall": 0.8088,
+      "F1-Score": 0.873,
+      "ROC-AUC": 0.974,
+      "PR-AUC": 0.8683
+    }
   },
   "anomaly_model": {
     "model_name": "IsolationForest",
