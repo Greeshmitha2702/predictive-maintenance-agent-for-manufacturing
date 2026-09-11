@@ -110,7 +110,8 @@ class ShapExplainabilityService:
             raw_tuples = []
             for idx, feat_name in enumerate(feature_names):
                 val = float(shap_values_matrix[idx])
-                raw_tuples.append((feat_name, val))
+                if abs(val) > 1e-6:
+                    raw_tuples.append((feat_name, val))
 
             # Sort by absolute SHAP contribution magnitude
             raw_tuples.sort(key=lambda x: abs(x[1]), reverse=True)

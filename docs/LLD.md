@@ -733,12 +733,12 @@ Exact domain ranges can be established from the dataset during implementation.
       {
         "feature":"tool_wear",
         "contribution":0.24,
-        "direction":"increases_risk"
+        "direction":"increases_failure_risk"
       },
       {
         "feature":"torque",
         "contribution":0.18,
-        "direction":"increases_risk"
+        "direction":"increases_failure_risk"
       }
     ]
   },
