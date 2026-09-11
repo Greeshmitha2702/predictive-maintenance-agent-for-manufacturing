@@ -1,0 +1,752 @@
+.app {
+  min-height: 100vh;
+}
+
+.header {
+  background: #172033;
+  color: white;
+  padding: 28px 40px;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 30px;
+}
+
+.header p {
+  margin: 8px 0 0;
+  color: #b8c2d1;
+  font-size: 15px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-field label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.form-field input,
+.form-field select {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 7px;
+  font-size: 15px;
+  background: white;
+}
+
+.form-field input:focus,
+.form-field select:focus {
+  outline: none;
+  border-color: #667085;
+}
+
+.form-actions {
+  margin-top: 24px;
+}
+
+.analyze-button {
+  width: 100%;
+  padding: 13px;
+  border: none;
+  border-radius: 7px;
+  background: #172033;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.analyze-button:hover {
+  background: #26334d;
+}
+
+.error-message {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 7px;
+  background: #fef2f2;
+  color: #b42318;
+  font-size: 14px;
+}
+
+@media (max-width: 700px) {
+  .header {
+    padding: 24px;
+  }
+
+  .dashboard {
+    margin: 24px auto;
+    padding: 0 16px;
+  }
+
+  .machine-card {
+    padding: 20px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.results-section {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.risk-badge,
+.anomaly-badge,
+.prediction-badge {
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.risk-badge.high,
+.prediction-badge.failure,
+.anomaly-badge.anomaly {
+  background: #fef2f2;
+  color: #b42318;
+}
+
+.risk-badge.medium {
+  background: #fffaeb;
+  color: #b54708;
+}
+
+.risk-badge.low,
+.prediction-badge.safe,
+.anomaly-badge.normal {
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+@media (max-width: 700px) {
+  .results-section {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+.loading-card {
+  text-align: center;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  margin: 0 auto 16px;
+  border: 4px solid #e5e7eb;
+  border-top-color: #172033;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.loading-card h3 {
+  margin: 0 0 8px;
+}
+
+.loading-card p {
+  margin: 0;
+  color: #667085;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+.analysis-placeholder {
+  margin-top: 24px;
+  padding: 32px;
+  border: 1px dashed #d0d5dd;
+  border-radius: 10px;
+  text-align: center;
+  background: #f9fafb;
+}
+
+.analysis-placeholder p {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.analysis-placeholder span {
+  color: #667085;
+  font-size: 14px;
+}
+
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.overview-card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.overview-card h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 18px;
+}
+
+.overview-card p {
+  margin: 0;
+  color: #667085;
+  line-height: 1.6;
+}
+
+@media (max-width: 700px) {
+  .overview-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 30px;
+}
+
+.navigation {
+  display: flex;
+  gap: 8px;
+}
+
+.nav-link {
+  color: #b8c2d1;
+  text-decoration: none;
+  padding: 10px 14px;
+  border-radius: 7px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.nav-link:hover {
+  background: #26334d;
+  color: white;
+}
+
+.nav-link.active {
+  background: white;
+  color: #172033;
+}
+
+@media (max-width: 700px) {
+  .header-content {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .navigation {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+}
+
+.welcome-page {
+  min-height: calc(100vh - 96px);
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 70px 24px;
+}
+
+.welcome-hero {
+  text-align: center;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.welcome-label {
+  margin: 0 0 14px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #667085;
+}
+
+.welcome-hero h2 {
+  margin: 0;
+  font-size: 52px;
+  line-height: 1.1;
+  color: #172033;
+}
+
+.welcome-description {
+  max-width: 680px;
+  margin: 22px auto 30px;
+  color: #667085;
+  font-size: 18px;
+  line-height: 1.7;
+}
+
+.welcome-button {
+  display: inline-block;
+  padding: 13px 24px;
+  border-radius: 7px;
+  background: #172033;
+  color: white;
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.welcome-button:hover {
+  background: #26334d;
+}
+
+.welcome-features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-top: 70px;
+}
+
+.welcome-feature {
+  background: white;
+  padding: 24px;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.welcome-feature h3 {
+  margin: 0 0 10px;
+  font-size: 19px;
+}
+
+.welcome-feature p {
+  margin: 0;
+  color: #667085;
+  line-height: 1.6;
+}
+
+@media (max-width: 700px) {
+  .welcome-page {
+    padding: 45px 16px;
+  }
+
+  .welcome-hero h2 {
+    font-size: 38px;
+  }
+
+  .welcome-description {
+    font-size: 16px;
+  }
+
+  .welcome-features {
+    grid-template-columns: 1fr;
+    margin-top: 45px;
+  }
+}
+
+/* =========================================================
+   DASHBOARD
+   ========================================================= */
+
+.dashboard {
+  max-width: 1100px;
+  margin: 40px auto;
+  padding: 0 24px;
+}
+
+/* Small uppercase section heading */
+.section-label {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: #667085;
+}
+
+/* Dashboard title section */
+.dashboard-title {
+  margin-bottom: 24px;
+}
+
+.dashboard-title h2 {
+  margin: 0;
+  font-size: 28px;
+  color: #172033;
+}
+
+.dashboard-title > p:last-child {
+  max-width: 720px;
+  margin-top: 8px;
+  color: #667085;
+  line-height: 1.6;
+}
+
+/* =========================================================
+   MACHINE INPUT CARD
+   ========================================================= */
+
+.machine-card {
+  background: white;
+  border-radius: 12px;
+  padding: 28px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.card-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.machine-card h3 {
+  margin: 0 0 6px;
+  font-size: 20px;
+}
+
+.machine-card-description {
+  margin: 0;
+  color: #667085;
+}
+
+.status-indicator {
+  padding: 7px 10px;
+  border-radius: 6px;
+  background: #ecfdf3;
+  color: #027a48;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* =========================================================
+   RESULTS SECTION
+   ========================================================= */
+
+.dashboard-results {
+  margin-top: 32px;
+}
+
+.results-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.results-heading h3 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.result-status {
+  padding: 7px 10px;
+  border-radius: 6px;
+  background: #ecfdf3;
+  color: #027a48;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+/* =========================================================
+   RESULT CARDS
+   ========================================================= */
+
+.result-card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  min-height: 220px;
+}
+
+.result-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.result-card-label {
+  margin: 0 0 5px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #98a2b3;
+}
+
+.result-card h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+/* =========================================================
+   FAILURE RISK
+   ========================================================= */
+
+.risk-score {
+  margin-top: 10px;
+  font-size: 42px;
+  font-weight: 700;
+  color: #172033;
+}
+
+.result-description {
+  margin: 10px 0 0;
+  color: #667085;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* =========================================================
+   ANOMALY
+   ========================================================= */
+
+.anomaly-content {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.result-label {
+  margin: 0 0 6px;
+  color: #667085;
+  font-size: 13px;
+}
+
+.result-value {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* =========================================================
+   FAILURE PREDICTION
+   ========================================================= */
+
+.prediction-status {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+/* =========================================================
+   BADGES
+   ========================================================= */
+
+.risk-badge,
+.anomaly-badge,
+.prediction-badge {
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.risk-badge.high,
+.prediction-badge.failure,
+.anomaly-badge.anomaly {
+  background: #fef2f2;
+  color: #b42318;
+}
+
+.risk-badge.medium {
+  background: #fffaeb;
+  color: #b54708;
+}
+
+.risk-badge.low,
+.prediction-badge.safe,
+.anomaly-badge.normal {
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+/* =========================================================
+   RESPONSIVE DESIGN
+   ========================================================= */
+
+@media (max-width: 900px) {
+  .results-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .dashboard {
+    margin: 24px auto;
+    padding: 0 16px;
+  }
+
+  .machine-card {
+    padding: 20px;
+  }
+
+  .card-heading,
+  .results-heading {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* =========================================================
+   ANALYSIS SUMMARY
+   ========================================================= */
+
+.analysis-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.analysis-value {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+
+/* Make the analysis cards stack on smaller screens */
+@media (max-width: 700px) {
+  .analysis-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================================================
+   SAVE AND CLEAR BUTTONS
+   ========================================================= */
+
+.result-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.save-button,
+.clear-button {
+  padding: 11px 18px;
+  border: none;
+  border-radius: 7px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.save-button {
+  background: #172033;
+  color: white;
+}
+
+.save-button:hover {
+  background: #26334d;
+}
+
+.clear-button {
+  background: white;
+  color: #172033;
+  border: 1px solid #d0d5dd;
+}
+
+.clear-button:hover {
+  background: #f4f6f8;
+}
+
+/* =========================================================
+   HISTORY
+   ========================================================= */
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.history-card {
+  background: white;
+  padding: 22px;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.history-date {
+  margin: 0 0 6px;
+  color: #667085;
+  font-size: 13px;
+}
+
+.history-card h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.history-details {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.history-details span {
+  display: block;
+  margin-bottom: 5px;
+  color: #667085;
+  font-size: 13px;
+}
+
+.history-details strong {
+  font-size: 17px;
+}
+
+.clear-history-button {
+  margin-top: 20px;
+  padding: 10px 16px;
+  border: 1px solid #d0d5dd;
+  border-radius: 7px;
+  background: white;
+  color: #b42318;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.clear-history-button:hover {
+  background: #fef2f2;
+}
+
+@media (max-width: 700px) {
+  .history-details {
+    grid-template-columns: 1fr;
+  }
+}
