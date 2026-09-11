@@ -8,8 +8,8 @@ from api.routes import router
 
 app = FastAPI(
     title="Predictive Maintenance Agent API",
-    version="0.1.0",
-    description="BE-1: FastAPI foundation with health check and mock prediction.",
+    version="0.2.0",
+    description="BE-2: ML Integration with real failure prediction and anomaly detection artifacts.",
 )
 
 

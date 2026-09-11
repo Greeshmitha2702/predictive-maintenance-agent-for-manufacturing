@@ -5,6 +5,8 @@ from schemas.prediction import (
     PredictionRequest,
     PredictionResponse,
 )
+from services.failure_service import get_failure_service
+from services.anomaly_service import get_anomaly_service
 
 
 router = APIRouter(
@@ -13,7 +15,7 @@ router = APIRouter(
 )
 
 
-API_VERSION = "0.1.0"
+API_VERSION = "0.2.0"
 
 
 @router.get(
@@ -33,42 +35,44 @@ def health_check() -> HealthResponse:
 )
 def predict(payload: PredictionRequest) -> PredictionResponse:
     """
-    BE-1 mock prediction.
-
-    Real ML integration will be added in a later backend phase.
+    BE-2 ML Integration:
+    Runs validated machine operating parameters through FailurePredictionService
+    and AnomalyDetectionService loaded from real ML model artifacts.
     """
-
     try:
-        # --------------------------------------------------
-        # MOCK LOGIC ONLY
-        # --------------------------------------------------
+        # Extract validated request dictionary
+        input_data = {
+            "type": payload.type.value if hasattr(payload.type, "value") else str(payload.type),
+            "air_temperature": float(payload.air_temperature),
+            "process_temperature": float(payload.process_temperature),
+            "rotational_speed": float(payload.rotational_speed),
+            "torque": float(payload.torque),
+            "tool_wear": float(payload.tool_wear),
+        }
 
-        mock_probability = (
-            (payload.tool_wear / 1000)
-            + (payload.torque / 1000)
-            + (0.05 if payload.type.value == "L" else 0.0)
-        )
+        # 1. Failure Prediction
+        failure_service = get_failure_service()
+        prob, failure_pred, model_ver = failure_service.predict(input_data)
 
-        mock_probability = min(
-            0.99,
-            max(0.01, mock_probability),
-        )
-
-        mock_prediction = mock_probability >= 0.5
+        # 2. Anomaly Detection
+        anomaly_service = get_anomaly_service()
+        score, is_anom = anomaly_service.detect_anomaly(input_data)
 
         return PredictionResponse(
-            failure_probability=round(
-                mock_probability,
-                4,
-            ),
-            failure_predicted=mock_prediction,
-            is_anomaly=False,
-            anomaly_score=0.0,
-            model_version="mock-0.0.0",
+            failure_probability=prob,
+            failure_predicted=failure_pred,
+            is_anomaly=is_anom,
+            anomaly_score=score,
+            model_version=model_ver,
         )
 
+    except RuntimeError as rerr:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(rerr),
+        ) from rerr
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal error while generating prediction.",
+            detail=f"Internal error during ML prediction: {str(exc)}",
         ) from exc
