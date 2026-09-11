@@ -25,55 +25,22 @@ class PredictionRequest(BaseModel):
         }
     )
 
-    type: MachineType = Field(
-        ...,
-        description="Machine type: L, M, or H",
-    )
-
-    air_temperature: float = Field(
-        ...,
-        gt=0,
-        le=400,
-        description="Air temperature in Kelvin",
-    )
-
-    process_temperature: float = Field(
-        ...,
-        gt=0,
-        le=400,
-        description="Process temperature in Kelvin",
-    )
-
-    rotational_speed: float = Field(
-        ...,
-        gt=0,
-        le=10000,
-        description="Rotational speed in rpm",
-    )
-
-    torque: float = Field(
-        ...,
-        ge=0,
-        le=500,
-        description="Torque in Nm",
-    )
-
-    tool_wear: float = Field(
-        ...,
-        ge=0,
-        le=1000,
-        description="Tool wear in minutes",
-    )
+    type: MachineType = Field(..., description="Machine type: L, M, or H")
+    air_temperature: float = Field(..., gt=0, le=400, description="Air temperature in Kelvin")
+    process_temperature: float = Field(..., gt=0, le=400, description="Process temperature in Kelvin")
+    rotational_speed: float = Field(..., gt=0, le=10000, description="Rotational speed in rpm")
+    torque: float = Field(..., ge=0, le=500, description="Torque in Nm")
+    tool_wear: float = Field(..., ge=0, le=1000, description="Tool wear in minutes")
 
 
 class FeatureContribution(BaseModel):
     feature: str = Field(
         ...,
-        description="Name of the machine operating parameter or engineered domain feature",
+        description="Name of the parameter or engineered domain feature",
     )
     contribution: float = Field(
         ...,
-        description="SHAP attribution magnitude value",
+        description="Signed SHAP contribution value for this prediction.",
     )
     direction: str = Field(
         ...,
@@ -120,7 +87,7 @@ class PredictionResponse(BaseModel):
                 "failure_predicted": False,
                 "is_anomaly": False,
                 "anomaly_score": 0.0,
-                "model_version": "Random Forest (Threshold: 0.4500)",
+                "model_version": "Random Forest (Threshold: 0.4900)",
                 "explanation": {
                     "top_factors": [
                         {
@@ -135,37 +102,12 @@ class PredictionResponse(BaseModel):
         }
     )
 
-    failure_probability: float = Field(
-        ...,
-        ge=0,
-        le=1,
-        description="Predicted probability of machine failure",
-    )
-
-    failure_predicted: bool = Field(
-        ...,
-        description="Thresholded binary failure prediction",
-    )
-
-    is_anomaly: bool = Field(
-        ...,
-        description="Boolean anomaly detection status",
-    )
-
-    anomaly_score: float = Field(
-        ...,
-        description="Isolation Forest decision score",
-    )
-
-    model_version: str = Field(
-        ...,
-        description="Identifier of the prediction model implementation",
-    )
-
-    explanation: Optional[ExplanationResponse] = Field(
-        default=None,
-        description="SHAP explainability feature attribution results",
-    )
+    failure_probability: float = Field(..., ge=0, le=1, description="Predicted probability of machine failure")
+    failure_predicted: bool = Field(..., description="Thresholded binary failure prediction")
+    is_anomaly: bool = Field(..., description="Boolean anomaly detection status")
+    anomaly_score: float = Field(..., description="Isolation Forest decision score")
+    model_version: str = Field(..., description="Identifier of the prediction model implementation")
+    explanation: Optional[ExplanationResponse] = Field(default=None, description="SHAP explainability results")
 
 
 class HealthResponse(BaseModel):

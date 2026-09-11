@@ -1,5 +1,6 @@
 import os
 import sys
+import logging
 import numpy as np
 import pandas as pd
 from typing import Dict, Any, List, Optional
@@ -13,6 +14,8 @@ if ML_SRC_DIR not in sys.path:
 
 from schemas.prediction import ExplanationResponse, FeatureContribution
 from services.failure_service import get_failure_service
+
+logger = logging.getLogger(__name__)
 
 
 class ShapExplainabilityService:
@@ -38,7 +41,8 @@ class ShapExplainabilityService:
             if model is not None:
                 self.explainer = shap.TreeExplainer(model)
                 self.shap_available = True
-        except Exception:
+        except Exception as exc:
+            logger.warning("SHAP TreeExplainer initialization failed: %s", exc, exc_info=True)
             self.explainer = None
             self.shap_available = False
 
@@ -47,10 +51,14 @@ class ShapExplainabilityService:
         Computes SHAP feature contributions for the provided machine operating parameters.
         Returns ExplanationResponse containing top_k factors, impact directions, and disclaimer.
         """
-        disclaimer_text = (
-            "SHAP feature attributions describe statistical model risk contributions/potential "
-            "contributing factors, not guaranteed physical root causes."
-        )
+        public_unavailable_msg = "SHAP explanation unavailable for the current prediction."
+
+        if not self.shap_available or self.explainer is None:
+            logger.info("SHAP explainer is not available; returning empty explanation.")
+            return ExplanationResponse(
+                top_factors=[],
+                disclaimer=public_unavailable_msg
+            )
 
         try:
             df_input = pd.DataFrame([input_data])
@@ -76,46 +84,40 @@ class ShapExplainabilityService:
                 else:
                     feature_names = [f"feature_{i}" for i in range(X_proc.shape[1])]
 
-            # Compute SHAP values
+            # Compute local SHAP values
+            shap_vals = self.explainer.shap_values(X_proc)
             shap_values_matrix = None
-            if self.shap_available and self.explainer is not None:
-                try:
-                    shap_vals = self.explainer.shap_values(X_proc)
-                    if isinstance(shap_vals, list) and len(shap_vals) > 1:
-                        shap_values_matrix = shap_vals[1][0]
-                    elif isinstance(shap_vals, np.ndarray):
-                        if shap_vals.ndim == 3:
-                            shap_values_matrix = shap_vals[0, :, 1]
-                        elif shap_vals.ndim == 2:
-                            shap_values_matrix = shap_vals[0]
-                        else:
-                            shap_values_matrix = shap_vals.flatten()
-                except Exception:
-                    shap_values_matrix = None
 
-            # Fallback to model feature importances if SHAP calculation fails or is unavailable
-            if shap_values_matrix is None:
-                model = self.failure_service.model
-                if hasattr(model, "feature_importances_"):
-                    shap_values_matrix = model.feature_importances_
+            if isinstance(shap_vals, list) and len(shap_vals) > 1:
+                shap_values_matrix = shap_vals[1][0]
+            elif isinstance(shap_vals, np.ndarray):
+                if shap_vals.ndim == 3:
+                    shap_values_matrix = shap_vals[0, :, 1]
+                elif shap_vals.ndim == 2:
+                    shap_values_matrix = shap_vals[0]
                 else:
-                    return ExplanationResponse(
-                        top_factors=[],
-                        disclaimer="SHAP explanation unavailable for current model architecture."
-                    )
+                    shap_values_matrix = shap_vals.flatten()
 
-            # Format top factors
+            if shap_values_matrix is None:
+                logger.error("Failed to extract SHAP value matrix from explainer output.")
+                return ExplanationResponse(
+                    top_factors=[],
+                    disclaimer=public_unavailable_msg
+                )
+
+            # Format top factors using signed SHAP contributions
             contributions: List[FeatureContribution] = []
             raw_tuples = []
             for idx, feat_name in enumerate(feature_names):
                 val = float(shap_values_matrix[idx])
                 raw_tuples.append((feat_name, val))
 
+            # Sort by absolute SHAP contribution magnitude
             raw_tuples.sort(key=lambda x: abs(x[1]), reverse=True)
 
             for feat_name, val in raw_tuples[:top_k]:
                 clean_name = str(feat_name).replace("num__", "").replace("cat__", "")
-                direction = "increases_failure_risk" if val >= 0 else "decreases_failure_risk"
+                direction = "increases_failure_risk" if val > 0 else "decreases_failure_risk"
                 contributions.append(
                     FeatureContribution(
                         feature=clean_name,
@@ -124,15 +126,21 @@ class ShapExplainabilityService:
                     )
                 )
 
+            standard_disclaimer = (
+                "SHAP feature attributions describe statistical model risk contributions/potential "
+                "contributing factors, not guaranteed physical root causes."
+            )
+
             return ExplanationResponse(
                 top_factors=contributions,
-                disclaimer=disclaimer_text,
+                disclaimer=standard_disclaimer,
             )
 
         except Exception as exc:
+            logger.error("Error generating SHAP explanation: %s", exc, exc_info=True)
             return ExplanationResponse(
                 top_factors=[],
-                disclaimer=f"SHAP explanation failed: {str(exc)}",
+                disclaimer=public_unavailable_msg,
             )
 
 

@@ -294,22 +294,22 @@ Machine Failure
 
 ### Approach
 
-
-Replace with:
-
-```markdown
 Binary classification.
 
 Candidate models considered:
+- Logistic Regression
+- Decision Tree
+- Random Forest
+- XGBoost
 
-```text
-Logistic Regression
-Decision Tree
-Random Forest
-XGBoost
-```
+**Final Model Selection & Configuration:**
+Random Forest was selected as the final failure prediction classifier through comparative experimentation across four pipeline configurations.
 
-The final model will be selected based on experimental evaluation.
+The final architecture consists of:
+- One-Hot Encoding for categorical feature (`Type`)
+- StandardScaler for numerical operating parameters & engineered features
+- Random Forest with class-balanced weighting (`class_weight="balanced"`)
+- Final probability decision threshold tuned to **0.49** using 5-fold Stratified Out-of-Fold (OOF) cross-validation.
 
 ---
 

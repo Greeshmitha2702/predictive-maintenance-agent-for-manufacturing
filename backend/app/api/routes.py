@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, HTTPException, status
 
 from agent.predictive_maintenance_agent import get_agent
@@ -7,6 +8,7 @@ from schemas.prediction import (
     PredictionResponse,
 )
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/api/v1",
@@ -42,12 +44,14 @@ def predict(payload: PredictionRequest) -> PredictionResponse:
         return agent.analyze_machine(payload)
 
     except RuntimeError as rerr:
+        logger.error("Runtime error in /predict route: %s", rerr, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(rerr),
+            detail="Internal error while generating prediction.",
         ) from rerr
     except Exception as exc:
+        logger.error("Unexpected error in /predict route: %s", exc, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error in PredictiveMaintenanceAgent orchestration: {str(exc)}",
+            detail="Internal error while generating prediction.",
         ) from exc
