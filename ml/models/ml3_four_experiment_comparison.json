@@ -1,0 +1,77 @@
+{
+  "experiments": [
+    {
+      "Experiment": "OneHot + StandardScaler + Balanced RF",
+      "CV Recall": 0.8119,
+      "CV Precision": 0.9238,
+      "CV F1": 0.864,
+      "CV PR-AUC": 0.8872,
+      "CV ROC-AUC": 0.9754
+    },
+    {
+      "Experiment": "OneHot + MinMaxScaler + Balanced RF",
+      "CV Recall": 0.8119,
+      "CV Precision": 0.9163,
+      "CV F1": 0.8606,
+      "CV PR-AUC": 0.8869,
+      "CV ROC-AUC": 0.9754
+    },
+    {
+      "Experiment": "OneHot + StandardScaler + SMOTE + RF",
+      "CV Recall": 0.8266,
+      "CV Precision": 0.7197,
+      "CV F1": 0.7684,
+      "CV PR-AUC": 0.8592,
+      "CV ROC-AUC": 0.977
+    },
+    {
+      "Experiment": "OneHot + MinMaxScaler + SMOTE + RF",
+      "CV Recall": 0.8376,
+      "CV Precision": 0.631,
+      "CV F1": 0.7193,
+      "CV PR-AUC": 0.8459,
+      "CV ROC-AUC": 0.9762
+    }
+  ],
+  "ranking": [
+    {
+      "Experiment": "OneHot + StandardScaler + Balanced RF",
+      "CV Recall": 0.8119,
+      "CV Precision": 0.9238,
+      "CV F1": 0.864,
+      "CV PR-AUC": 0.8872,
+      "CV ROC-AUC": 0.9754
+    },
+    {
+      "Experiment": "OneHot + MinMaxScaler + Balanced RF",
+      "CV Recall": 0.8119,
+      "CV Precision": 0.9163,
+      "CV F1": 0.8606,
+      "CV PR-AUC": 0.8869,
+      "CV ROC-AUC": 0.9754
+    },
+    {
+      "Experiment": "OneHot + StandardScaler + SMOTE + RF",
+      "CV Recall": 0.8266,
+      "CV Precision": 0.7197,
+      "CV F1": 0.7684,
+      "CV PR-AUC": 0.8592,
+      "CV ROC-AUC": 0.977
+    },
+    {
+      "Experiment": "OneHot + MinMaxScaler + SMOTE + RF",
+      "CV Recall": 0.8376,
+      "CV Precision": 0.631,
+      "CV F1": 0.7193,
+      "CV PR-AUC": 0.8459,
+      "CV ROC-AUC": 0.9762
+    }
+  ],
+  "cv_folds": 5,
+  "random_state": 42,
+  "selection_priority": [
+    "CV PR-AUC",
+    "CV F1",
+    "CV Recall"
+  ]
+}

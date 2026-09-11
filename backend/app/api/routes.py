@@ -1,11 +1,14 @@
+import logging
 from fastapi import APIRouter, HTTPException, status
 
+from agent.predictive_maintenance_agent import get_agent
 from schemas.prediction import (
     HealthResponse,
     PredictionRequest,
     PredictionResponse,
 )
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/api/v1",
@@ -13,7 +16,7 @@ router = APIRouter(
 )
 
 
-API_VERSION = "0.1.0"
+API_VERSION = "0.4.0"
 
 
 @router.get(
@@ -33,41 +36,21 @@ def health_check() -> HealthResponse:
 )
 def predict(payload: PredictionRequest) -> PredictionResponse:
     """
-    BE-1 mock prediction.
-
-    Real ML integration will be added in a later backend phase.
+    BE-4 SHAP Explainability Integration:
+    Delegates analysis request to PredictiveMaintenanceAgent including SHAP feature attributions.
     """
-
     try:
-        # --------------------------------------------------
-        # MOCK LOGIC ONLY
-        # --------------------------------------------------
+        agent = get_agent()
+        return agent.analyze_machine(payload)
 
-        mock_probability = (
-            (payload.tool_wear / 1000)
-            + (payload.torque / 1000)
-            + (0.05 if payload.type.value == "L" else 0.0)
-        )
-
-        mock_probability = min(
-            0.99,
-            max(0.01, mock_probability),
-        )
-
-        mock_prediction = mock_probability >= 0.5
-
-        return PredictionResponse(
-            failure_probability=round(
-                mock_probability,
-                4,
-            ),
-            failure_predicted=mock_prediction,
-            is_anomaly=False,
-            anomaly_score=0.0,
-            model_version="mock-0.0.0",
-        )
-
+    except RuntimeError as rerr:
+        logger.error("Runtime error in /predict route: %s", rerr, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal error while generating prediction.",
+        ) from rerr
     except Exception as exc:
+        logger.error("Unexpected error in /predict route: %s", exc, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal error while generating prediction.",
