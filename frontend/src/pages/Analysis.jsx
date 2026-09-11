@@ -1,3 +1,6 @@
+import SHAPExplanation from "../components/SHAPExplanation";
+import RecommendationSection from "../components/RecommendationSection";
+
 function Analysis({ predictionResult }) {
   return (
     <main className="dashboard">
@@ -74,16 +77,13 @@ function Analysis({ predictionResult }) {
           </div>
 
 
-          {/* This section will later be expanded by Person 2. */}
-          <div className="analysis-placeholder">
+          <SHAPExplanation
+  explanations={predictionResult.shap_explanations || []}
+/>
 
-            <p>Detailed Explanation</p>
-
-            <span>
-              SHAP factors and maintenance recommendations will appear here.
-            </span>
-
-          </div>
+<RecommendationSection
+  recommendations={predictionResult.recommendations || []}
+/>
 
         </section>
       )}
