@@ -1,5 +1,3 @@
-import React from "react";
-
 const RecommendationSection = ({ recommendations = [] }) => {
   return (
     <section className="recommendation-section">
@@ -9,19 +7,34 @@ const RecommendationSection = ({ recommendations = [] }) => {
         <p>No recommendations available.</p>
       ) : (
         <div className="recommendation-list">
-          {recommendations.map((recommendation, index) => (
-            <div className="recommendation-card" key={index}>
-              <h3>{recommendation.title}</h3>
+          {recommendations.map((recommendation, index) => {
+            const isObject =
+              recommendation !== null &&
+              typeof recommendation === "object";
 
-              <p>{recommendation.description}</p>
+            const text =
+              typeof recommendation === "string"
+                ? recommendation
+                : recommendation?.description ||
+                  recommendation?.title ||
+                  "";
 
-              {recommendation.priority && (
-                <span className="recommendation-priority">
-                  Priority: {recommendation.priority}
-                </span>
-              )}
-            </div>
-          ))}
+            return (
+              <div className="recommendation-card" key={index}>
+                {isObject && recommendation.title && (
+                  <h3>{recommendation.title}</h3>
+                )}
+
+                {text && <p>{text}</p>}
+
+                {isObject && recommendation.priority && (
+                  <span className="recommendation-priority">
+                    Priority: {recommendation.priority}
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </section>
