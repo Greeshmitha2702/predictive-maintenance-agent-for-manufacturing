@@ -75,14 +75,25 @@ Predict whether the machine is likely to experience failure.
 
 **Problem type:** Binary classification
 
-**Candidate models:**
+**Candidate models considered:**
 
 - Logistic Regression
 - Decision Tree
 - Random Forest
 - XGBoost
 
-The final model will be selected experimentally based on validation performance and generalization.
+Random Forest was selected as the final failure prediction classifier through
+experimental evaluation of preprocessing and class-imbalance strategies.
+
+The final pipeline uses:
+
+- Domain feature engineering
+- One-Hot Encoding for `Type`
+- StandardScaler for numerical features
+- Random Forest with class balancing (`class_weight="balanced"`)
+
+The final classification threshold was tuned to **0.49** using out-of-fold
+validation data.
 
 ---
 
@@ -283,11 +294,15 @@ Machine Failure
 
 ### Approach
 
+
+Replace with:
+
+```markdown
 Binary classification.
 
-Candidate models:
+Candidate models considered:
 
-```
+```text
 Logistic Regression
 Decision Tree
 Random Forest
@@ -443,20 +458,20 @@ Tool Wear
 
 ## Feature Engineering
 
-Potential derived features include:
+The final failure prediction pipeline uses the following engineered features:
 
-```
-Temperature Difference
+### 1. Temperature Difference
+
+```text
+temperature_difference
 = Process Temperature − Air Temperature
-```
 
-Potential mechanical-power-related feature:
+mechanical_power_W
+= Torque × Rotational speed × (2π / 60)
 
+overstrain_index
+= Tool wear × Torque
 ```
-Torque × Rotational Speed
-```
-
-Engineered features will be retained only if experimentation shows that they improve model performance.
 
 ## Encoding
 
@@ -533,11 +548,20 @@ Primary evaluation metrics:
 - ROC-AUC
 - Confusion Matrix
 
-### Initial imbalance strategy
+### Class Imbalance Strategy
 
-**Class weights**
+Class imbalance was addressed through experimental comparison of:
 
-SMOTE may be evaluated if required, but will only be applied to training data/folds to prevent leakage.
+- Class-balanced Random Forest
+- SMOTE + Random Forest
+
+The final selected approach uses:
+
+**Random Forest with `class_weight="balanced"`**
+
+SMOTE-based configurations were evaluated but were not selected because they
+provided higher recall in some configurations while substantially reducing
+precision, F1-score and PR-AUC.
 
 ---
 
@@ -923,10 +947,11 @@ The following are intentionally excluded from the two-day MVP but could be added
 | Agent | Custom Python orchestrator | Simple and fast |
 | Anomaly Detection | Isolation Forest | Designed for unsupervised anomaly detection |
 | Failure Prediction | Binary Classification | Target is binary |
-| Classifier | Experimentally selected | Avoid premature model selection |
+| Classifier | Balanced Random Forest | Selected through experimental pipeline comparison |
 | Explainability | SHAP | Feature-level model explanation |
 | Recommendation | Rule-based | Reliable and fast for MVP |
 | Encoding | One-Hot | Avoid artificial ordering |
+| Scaling | StandardScaler | Selected experimental configuration |
 | Validation | Stratified K-Fold | Handles imbalanced target |
 | Data Split | 80/20 stratified | Reliable final evaluation |
 | Database | Not required | Not needed for MVP |
