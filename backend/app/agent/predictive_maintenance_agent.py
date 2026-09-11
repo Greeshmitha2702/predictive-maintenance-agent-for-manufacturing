@@ -4,6 +4,7 @@ from schemas.prediction import PredictionRequest, PredictionResponse, Explanatio
 from services.failure_service import FailurePredictionService, get_failure_service
 from services.anomaly_service import AnomalyDetectionService, get_anomaly_service
 from services.shap_service import ShapExplainabilityService, get_shap_service
+from services.risk_service import RiskAssessmentService, get_risk_service
 
 
 class PredictiveMaintenanceAgent:
@@ -14,10 +15,12 @@ class PredictiveMaintenanceAgent:
     1. Anomaly Detection (Isolation Forest)
     2. Failure Prediction (Classifier model)
     3. SHAP Feature Attribution (BE-4)
-    4. Risk Assessment (Stubbed for BE-5)
-    5. Preventive Maintenance Recommendations (Stubbed for BE-5)
+    4. Risk Assessment (BE-5 — RiskAssessmentService)
+    5. Preventive Maintenance Recommendations (Stubbed for BE-6)
     
     Ensures Anomaly Detection and Failure Prediction remain independent signals.
+    Risk level is derived solely from failure probability; anomaly status is preserved
+    as a separate independent field.
     """
 
     _instance: Optional["PredictiveMaintenanceAgent"] = None
@@ -27,10 +30,12 @@ class PredictiveMaintenanceAgent:
         failure_service: Optional[FailurePredictionService] = None,
         anomaly_service: Optional[AnomalyDetectionService] = None,
         shap_service: Optional[ShapExplainabilityService] = None,
+        risk_service: Optional[RiskAssessmentService] = None,
     ):
         self.failure_service = failure_service or get_failure_service()
         self.anomaly_service = anomaly_service or get_anomaly_service()
         self.shap_service = shap_service or get_shap_service()
+        self.risk_service = risk_service or get_risk_service()
 
     def analyze_machine(self, payload: PredictionRequest) -> PredictionResponse:
         """
@@ -55,10 +60,10 @@ class PredictiveMaintenanceAgent:
         # Step 3: Run SHAP Feature Attribution Explainability
         explanation = self._run_shap_explanation(input_data)
 
-        # Step 4: Run Risk Assessment (Placeholder for BE-5)
-        _ = self._assess_risk_level(failure_prob)
+        # Step 4: Classify risk level using failure probability (independent of anomaly status)
+        risk_level = self._assess_risk_level(failure_prob)
 
-        # Step 5: Run Recommendation Engine (Placeholder for BE-5)
+        # Step 5: Run Recommendation Engine (Placeholder for BE-6)
         _ = self._generate_recommendations(input_data, failure_prob, is_anomaly)
 
         # Step 6: Construct consolidated response keeping anomaly and failure separate
@@ -67,6 +72,7 @@ class PredictiveMaintenanceAgent:
             failure_predicted=failure_pred,
             is_anomaly=is_anomaly,
             anomaly_score=anomaly_score,
+            risk_level=risk_level,
             model_version=model_ver,
             explanation=explanation,
         )
@@ -76,12 +82,8 @@ class PredictiveMaintenanceAgent:
         return self.shap_service.explain(input_data)
 
     def _assess_risk_level(self, failure_probability: float) -> str:
-        """Placeholder for BE-5 Risk Assessment logic."""
-        if failure_probability >= 0.70:
-            return "HIGH"
-        elif failure_probability >= 0.30:
-            return "MEDIUM"
-        return "LOW"
+        """Delegates risk classification to RiskAssessmentService (BE-5)."""
+        return self.risk_service.assess(failure_probability)
 
     def _generate_recommendations(
         self,
@@ -89,7 +91,7 @@ class PredictiveMaintenanceAgent:
         failure_probability: float,
         is_anomaly: bool,
     ) -> list:
-        """Placeholder for BE-5 Recommendation Engine logic."""
+        """Placeholder for BE-6 Recommendation Engine logic."""
         return []
 
 
