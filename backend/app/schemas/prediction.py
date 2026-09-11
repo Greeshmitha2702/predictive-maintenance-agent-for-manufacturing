@@ -1,5 +1,5 @@
 from enum import Enum
-
+from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -20,7 +20,7 @@ class PredictionRequest(BaseModel):
                 "process_temperature": 308.6,
                 "rotational_speed": 1551,
                 "torque": 42.8,
-                "tool_wear": 0,
+                "tool_wear": 120,
             }
         }
     )
@@ -66,6 +66,52 @@ class PredictionRequest(BaseModel):
     )
 
 
+class FeatureContribution(BaseModel):
+    feature: str = Field(
+        ...,
+        description="Name of the machine operating parameter or engineered domain feature",
+    )
+    contribution: float = Field(
+        ...,
+        description="SHAP attribution magnitude value",
+    )
+    direction: str = Field(
+        ...,
+        description="Impact direction: 'increases_failure_risk' or 'decreases_failure_risk'",
+    )
+
+
+class ExplanationResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "top_factors": [
+                    {
+                        "feature": "tool_wear",
+                        "contribution": 0.24,
+                        "direction": "increases_failure_risk",
+                    },
+                    {
+                        "feature": "torque",
+                        "contribution": 0.18,
+                        "direction": "increases_failure_risk",
+                    },
+                ],
+                "disclaimer": "SHAP feature attributions describe statistical model risk contributions/potential contributing factors, not guaranteed physical root causes.",
+            }
+        }
+    )
+
+    top_factors: List[FeatureContribution] = Field(
+        default_factory=list,
+        description="Top contributing features sorted by SHAP contribution magnitude",
+    )
+    disclaimer: str = Field(
+        default="SHAP feature attributions describe statistical model risk contributions/potential contributing factors, not guaranteed physical root causes.",
+        description="Standard engineering disclaimer for XAI interpretability",
+    )
+
+
 class PredictionResponse(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
@@ -74,7 +120,17 @@ class PredictionResponse(BaseModel):
                 "failure_predicted": False,
                 "is_anomaly": False,
                 "anomaly_score": 0.0,
-                "model_version": "mock-0.0.0",
+                "model_version": "Random Forest (Threshold: 0.4500)",
+                "explanation": {
+                    "top_factors": [
+                        {
+                            "feature": "tool_wear",
+                            "contribution": 0.24,
+                            "direction": "increases_failure_risk",
+                        }
+                    ],
+                    "disclaimer": "SHAP feature attributions describe statistical model risk contributions/potential contributing factors, not guaranteed physical root causes.",
+                },
             }
         }
     )
@@ -83,27 +139,32 @@ class PredictionResponse(BaseModel):
         ...,
         ge=0,
         le=1,
-        description="Mock predicted probability of machine failure",
+        description="Predicted probability of machine failure",
     )
 
     failure_predicted: bool = Field(
         ...,
-        description="Mock thresholded failure prediction",
+        description="Thresholded binary failure prediction",
     )
 
     is_anomaly: bool = Field(
         ...,
-        description="Placeholder anomaly flag for BE-1",
+        description="Boolean anomaly detection status",
     )
 
     anomaly_score: float = Field(
         ...,
-        description="Placeholder anomaly score for BE-1",
+        description="Isolation Forest decision score",
     )
 
     model_version: str = Field(
         ...,
-        description="Identifier of the prediction implementation",
+        description="Identifier of the prediction model implementation",
+    )
+
+    explanation: Optional[ExplanationResponse] = Field(
+        default=None,
+        description="SHAP explainability feature attribution results",
     )
 
 

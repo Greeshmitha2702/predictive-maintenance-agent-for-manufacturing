@@ -1,8 +1,9 @@
 from typing import Dict, Any, Optional
 
-from schemas.prediction import PredictionRequest, PredictionResponse
+from schemas.prediction import PredictionRequest, PredictionResponse, ExplanationResponse
 from services.failure_service import FailurePredictionService, get_failure_service
 from services.anomaly_service import AnomalyDetectionService, get_anomaly_service
+from services.shap_service import ShapExplainabilityService, get_shap_service
 
 
 class PredictiveMaintenanceAgent:
@@ -12,7 +13,7 @@ class PredictiveMaintenanceAgent:
     Coordinates:
     1. Anomaly Detection (Isolation Forest)
     2. Failure Prediction (Classifier model)
-    3. SHAP Feature Attribution (Stubbed for BE-4)
+    3. SHAP Feature Attribution (BE-4)
     4. Risk Assessment (Stubbed for BE-5)
     5. Preventive Maintenance Recommendations (Stubbed for BE-5)
     
@@ -25,9 +26,11 @@ class PredictiveMaintenanceAgent:
         self,
         failure_service: Optional[FailurePredictionService] = None,
         anomaly_service: Optional[AnomalyDetectionService] = None,
+        shap_service: Optional[ShapExplainabilityService] = None,
     ):
         self.failure_service = failure_service or get_failure_service()
         self.anomaly_service = anomaly_service or get_anomaly_service()
+        self.shap_service = shap_service or get_shap_service()
 
     def analyze_machine(self, payload: PredictionRequest) -> PredictionResponse:
         """
@@ -49,8 +52,8 @@ class PredictiveMaintenanceAgent:
         # Step 2: Run Failure Prediction (Independent Signal)
         failure_prob, failure_pred, model_ver = self.failure_service.predict(input_data)
 
-        # Step 3: Run SHAP Feature Attribution (Placeholder for BE-4)
-        _ = self._run_shap_explanation(input_data)
+        # Step 3: Run SHAP Feature Attribution Explainability
+        explanation = self._run_shap_explanation(input_data)
 
         # Step 4: Run Risk Assessment (Placeholder for BE-5)
         _ = self._assess_risk_level(failure_prob)
@@ -65,11 +68,12 @@ class PredictiveMaintenanceAgent:
             is_anomaly=is_anomaly,
             anomaly_score=anomaly_score,
             model_version=model_ver,
+            explanation=explanation,
         )
 
-    def _run_shap_explanation(self, input_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Placeholder for BE-4 SHAP Explainability Service integration."""
-        return None
+    def _run_shap_explanation(self, input_data: Dict[str, Any]) -> ExplanationResponse:
+        """Invokes SHAP Explainability Service for failure feature contributions."""
+        return self.shap_service.explain(input_data)
 
     def _assess_risk_level(self, failure_probability: float) -> str:
         """Placeholder for BE-5 Risk Assessment logic."""

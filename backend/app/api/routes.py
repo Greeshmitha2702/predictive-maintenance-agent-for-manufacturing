@@ -14,7 +14,7 @@ router = APIRouter(
 )
 
 
-API_VERSION = "0.3.0"
+API_VERSION = "0.4.0"
 
 
 @router.get(
@@ -34,8 +34,8 @@ def health_check() -> HealthResponse:
 )
 def predict(payload: PredictionRequest) -> PredictionResponse:
     """
-    BE-3 PredictiveMaintenanceAgent Orchestration:
-    Delegates analysis request to the PredictiveMaintenanceAgent orchestrator layer.
+    BE-4 SHAP Explainability Integration:
+    Delegates analysis request to PredictiveMaintenanceAgent including SHAP feature attributions.
     """
     try:
         agent = get_agent()
