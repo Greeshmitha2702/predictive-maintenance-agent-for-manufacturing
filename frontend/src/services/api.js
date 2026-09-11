@@ -1,6 +1,30 @@
 const USE_MOCK_API = true;
 
-const API_BASE_URL = "http://localhost:8000";
+// Use the environment variable if available.
+// Otherwise, use localhost for development.
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
+// Check that the real backend returned the fields we expect.
+function validatePredictionResponse(data) {
+  const requiredFields = [
+    "failure_probability",
+    "failure_predicted",
+    "is_anomaly",
+    "anomaly_score",
+    "model_version",
+  ];
+
+  const hasAllFields = requiredFields.every(
+    (field) => Object.prototype.hasOwnProperty.call(data, field)
+  );
+
+  if (!data || typeof data !== "object" || !hasAllFields) {
+    throw new Error("Invalid prediction response from the backend.");
+  }
+
+  return data;
+}
 
 export async function predictMachine(machineData) {
   if (USE_MOCK_API) {
@@ -48,5 +72,7 @@ export async function predictMachine(machineData) {
     throw new Error("Prediction request failed.");
   }
 
-  return response.json();
+  const data = await response.json();
+
+  return validatePredictionResponse(data);
 }

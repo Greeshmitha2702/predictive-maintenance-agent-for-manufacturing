@@ -4,7 +4,11 @@ function ErrorMessage({ message }) {
   }
 
   return (
-    <section className="machine-card error-card">
+    <section
+      className="machine-card error-card"
+      role="alert"
+      aria-live="assertive"
+    >
       <h3>Analysis Error</h3>
 
       <p className="error-message">

@@ -41,9 +41,9 @@ function Dashboard({ predictionResult, setPredictionResult }) {
 
   // Save the current analysis in browser localStorage.
   const handleSave = () => {
-    if (!predictionResult) {
-      return;
-    }
+  if (!predictionResult || saved) {
+    return;
+  }
 
     // Get previous saved analyses.
     const history =
@@ -165,6 +165,7 @@ function Dashboard({ predictionResult, setPredictionResult }) {
             <button
               className="save-button"
               onClick={handleSave}
+              disabled={saved}
             >
               {saved ? "Saved" : "Save Analysis"}
             </button>

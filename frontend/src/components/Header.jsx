@@ -12,6 +12,7 @@ function Header() {
         <nav className="navigation">
           <NavLink
             to="/"
+            end
             className={({ isActive }) =>
               isActive ? "nav-link active" : "nav-link"
             }
@@ -38,10 +39,10 @@ function Header() {
           </NavLink>
 
           <NavLink
-          to="/history"
-          className={({ isActive }) =>
-            isActive ? "nav-link active" : "nav-link"
-           }
+            to="/history"
+            className={({ isActive }) =>
+              isActive ? "nav-link active" : "nav-link"
+            }
           >
             History
           </NavLink>

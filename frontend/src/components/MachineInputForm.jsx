@@ -15,6 +15,9 @@ function MachineInputForm({ onAnalyze, onLoading, onError }) {
   // Store validation error messages.
   const [error, setError] = useState("");
 
+  // Store whether a prediction request is running.
+  const [loading, setLoading] = useState(false);
+
   // Update the corresponding field whenever the user types.
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -24,12 +27,18 @@ function MachineInputForm({ onAnalyze, onLoading, onError }) {
       [name]: value,
     });
 
-    // Remove the old error when the user changes a value.
+    // Clear both form and Dashboard errors when the user changes a value.
     setError("");
+    onError("");
   };
 
   // Handle form submission.
   const handleSubmit = async (event) => {
+    // Prevent another submission while a request is running.
+    if (loading) {
+      return;
+    }
+
     // Prevent the browser from refreshing the page.
     event.preventDefault();
 
@@ -42,6 +51,7 @@ function MachineInputForm({ onAnalyze, onLoading, onError }) {
       formData.tool_wear === ""
     ) {
       setError("Please fill in all machine parameters.");
+      onError("Please fill in all machine parameters.");
       return;
     }
 
@@ -55,13 +65,18 @@ function MachineInputForm({ onAnalyze, onLoading, onError }) {
       tool_wear: Number(formData.tool_wear),
     };
 
-    // Check for invalid negative values.
-    if (
-      machineData.rotational_speed <= 0 ||
-      machineData.torque <= 0 ||
-      machineData.tool_wear < 0
-    ) {
+    // Check that every numeric value is finite and positive.
+    const numericValues = [
+      machineData.air_temperature,
+      machineData.process_temperature,
+      machineData.rotational_speed,
+      machineData.torque,
+      machineData.tool_wear,
+    ];
+
+    if (numericValues.some((value) => !Number.isFinite(value) || value <= 0)) {
       setError("Please enter valid positive machine values.");
+      onError("Please enter valid positive machine values.");
       return;
     }
 
@@ -70,6 +85,9 @@ function MachineInputForm({ onAnalyze, onLoading, onError }) {
     onError("");
 
     try {
+      // Prevent another submission while prediction is running.
+      setLoading(true);
+
       // Tell the Dashboard that analysis has started.
       onLoading(true);
 
@@ -78,12 +96,13 @@ function MachineInputForm({ onAnalyze, onLoading, onError }) {
 
       // Send the prediction result back to the Dashboard.
       onAnalyze(result);
-    } catch (error) {
+    } catch {
       // Show an error if the prediction request fails.
       setError("Unable to analyze the machine.");
       onError("Unable to analyze the machine.");
     } finally {
       // Stop the loading state after the request finishes.
+      setLoading(false);
       onLoading(false);
     }
   };
@@ -108,7 +127,6 @@ function MachineInputForm({ onAnalyze, onLoading, onError }) {
           </select>
         </div>
 
-
         {/* Air temperature */}
         <div className="form-field">
           <label htmlFor="air_temperature">
@@ -119,12 +137,13 @@ function MachineInputForm({ onAnalyze, onLoading, onError }) {
             id="air_temperature"
             name="air_temperature"
             type="number"
+            min="0"
+            step="any"
             value={formData.air_temperature}
             onChange={handleChange}
             placeholder="e.g. 298.5"
           />
         </div>
-
 
         {/* Process temperature */}
         <div className="form-field">
@@ -136,12 +155,13 @@ function MachineInputForm({ onAnalyze, onLoading, onError }) {
             id="process_temperature"
             name="process_temperature"
             type="number"
+            min="0"
+            step="any"
             value={formData.process_temperature}
             onChange={handleChange}
             placeholder="e.g. 308.6"
           />
         </div>
-
 
         {/* Rotational speed */}
         <div className="form-field">
@@ -153,13 +173,13 @@ function MachineInputForm({ onAnalyze, onLoading, onError }) {
             id="rotational_speed"
             name="rotational_speed"
             type="number"
-            min="1"
+            min="0"
+            step="any"
             value={formData.rotational_speed}
             onChange={handleChange}
             placeholder="e.g. 1550"
           />
         </div>
-
 
         {/* Torque */}
         <div className="form-field">
@@ -170,12 +190,12 @@ function MachineInputForm({ onAnalyze, onLoading, onError }) {
             name="torque"
             type="number"
             min="0"
+            step="any"
             value={formData.torque}
             onChange={handleChange}
             placeholder="e.g. 42.3"
           />
         </div>
-
 
         {/* Tool wear */}
         <div className="form-field">
@@ -186,6 +206,7 @@ function MachineInputForm({ onAnalyze, onLoading, onError }) {
             name="tool_wear"
             type="number"
             min="0"
+            step="any"
             value={formData.tool_wear}
             onChange={handleChange}
             placeholder="e.g. 120"
@@ -194,14 +215,16 @@ function MachineInputForm({ onAnalyze, onLoading, onError }) {
 
       </div>
 
-
       {/* Analyze button */}
       <div className="form-actions">
-        <button type="submit" className="analyze-button">
-          Analyze Machine
+        <button
+          type="submit"
+          className="analyze-button"
+          disabled={loading}
+        >
+          {loading ? "Analyzing..." : "Analyze Machine"}
         </button>
       </div>
-
 
       {/* Display validation error */}
       {error && <p className="error-message">{error}</p>}
