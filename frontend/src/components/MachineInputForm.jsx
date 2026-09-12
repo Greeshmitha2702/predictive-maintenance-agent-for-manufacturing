@@ -115,11 +115,16 @@ if (
 
       // Send the prediction result back to the Dashboard.
       onAnalyze(result);
-    } catch {
-      // Show an error if the prediction request fails.
-      setError("Unable to analyze the machine.");
-      onError("Unable to analyze the machine.");
-    } finally {
+    } catch (error) {
+  // Show the specific error message returned by the API.
+  const message =
+    error instanceof Error
+      ? error.message
+      : "Unable to analyze the machine.";
+
+  setError(message);
+  onError(message);
+}finally {
       // Stop the loading state after the request finishes.
       setIsSubmitting(false);
       onLoading(false);

@@ -123,6 +123,93 @@ function getMockResponse(machineData) {
 }
 
 // ---------------------------------------------------------------------------
+// 422 Validation Error Formatting
+// ---------------------------------------------------------------------------
+
+// Human-readable names for each backend field used in error messages.
+const FIELD_LABELS = {
+  type:                "machine type",
+  air_temperature:     "air temperature",
+  process_temperature: "process temperature",
+  rotational_speed:    "rotational speed",
+  torque:              "torque",
+  tool_wear:           "tool wear",
+};
+
+// Capitalise the first letter for use at the start of a sentence.
+function capitalise(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+// Convert a single FastAPI validation error object into a readable sentence.
+// Shape: { type, loc: ["body", <field>], msg, ctx? }
+function formatSingleError(err) {
+  const field = Array.isArray(err.loc) ? err.loc[err.loc.length - 1] : "";
+  const label = FIELD_LABELS[field] || String(field).replace(/_/g, " ");
+
+  switch (err.type) {
+    case "missing":
+      return `Missing required field: Please enter ${label}.`;
+
+    case "enum":
+      // e.g. type must be 'L', 'M' or 'H'
+      return `Invalid ${label}: Please select L, M, or H.`;
+
+    case "greater_than": {
+      // gt constraint — field must be strictly positive
+      const gt = err.ctx?.gt ?? 0;
+      return `Invalid ${label}: ${capitalise(label)} must be greater than ${gt}.`;
+    }
+
+    case "greater_than_equal": {
+      // ge constraint — field must be 0 or greater
+      const ge = err.ctx?.ge ?? 0;
+      return `Invalid ${label}: ${capitalise(label)} must be ${ge} or greater.`;
+    }
+
+    case "less_than_equal": {
+      // le constraint — field must not exceed the upper bound
+      const le = err.ctx?.le;
+      if (le !== undefined) {
+        return `Invalid ${label}: ${capitalise(label)} must be ${le} or less.`;
+      }
+      return `Invalid ${label}: Value is out of the allowed range.`;
+    }
+
+    case "less_than": {
+      // lt constraint — field must be strictly below the upper bound
+      const lt = err.ctx?.lt;
+      if (lt !== undefined) {
+        return `Invalid ${label}: ${capitalise(label)} must be less than ${lt}.`;
+      }
+      return `Invalid ${label}: Value is out of the allowed range.`;
+    }
+
+    case "float_parsing":
+    case "int_parsing":
+    case "decimal_parsing":
+      return `Invalid ${label}: Please enter a valid numeric value.`;
+
+    default:
+      // Safe fallback — show the label but not raw Pydantic internals.
+      return `Invalid ${label}: Please check the entered value.`;
+  }
+}
+
+// Convert a FastAPI 422 response body into a single user-readable string.
+// Multiple errors are joined with a newline so every issue is surfaced.
+function format422Error(body) {
+  if (!body || !Array.isArray(body.detail) || body.detail.length === 0) {
+    return "Unable to analyze the machine. Please check the entered values and try again.";
+  }
+
+  const messages = body.detail.map(formatSingleError);
+
+  // Return all messages (most inputs only produce one, but be safe)
+  return messages.join(" ");
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -145,14 +232,31 @@ export async function predictMachine(machineData) {
   } catch {
     // Network error (server unreachable, no internet, etc.)
     throw new Error(
-      "Unable to reach the prediction service. Check that the backend is running."
+      "Unable to connect to the prediction service. Please make sure the backend is running."
     );
   }
 
   if (!response.ok) {
-    // Surface a user-friendly message — never expose backend stack traces.
+    if (response.status === 422) {
+      // FastAPI returns structured validation details — convert to readable text.
+      let body;
+      try {
+        body = await response.json();
+      } catch {
+        body = null;
+      }
+      throw new Error(format422Error(body));
+    }
+
+    if (response.status >= 500) {
+      throw new Error(
+        "Prediction service encountered an error. Please try again."
+      );
+    }
+
+    // Any other unexpected HTTP error.
     throw new Error(
-      `Prediction request failed (HTTP ${response.status}). Please try again.`
+      "Unable to analyze the machine. Please check the entered values and try again."
     );
   }
 
