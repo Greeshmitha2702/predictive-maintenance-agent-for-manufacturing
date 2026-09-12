@@ -2,6 +2,8 @@ from enum import Enum
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.recommendation import RecommendationResponse
+
 
 class MachineType(str, Enum):
     """Machine type from the dataset."""
@@ -99,6 +101,20 @@ class PredictionResponse(BaseModel):
                     ],
                     "disclaimer": "SHAP feature attributions describe statistical model risk contributions/potential contributing factors, not guaranteed physical root causes.",
                 },
+                "recommendations": {
+                    "risk_level": "LOW",
+                    "urgency": "Continue standard preventive maintenance schedule",
+                    "root_cause_indicators": [],
+                    "recommendations": [
+                        {
+                            "id": "REC-LOW-000",
+                            "category": "INSPECTION",
+                            "severity": "INFO",
+                            "title": "Continue Standard Maintenance",
+                            "action": "Failure risk is LOW and no specific maintenance trigger was identified. Continue standard inspection and shift logging.",
+                        }
+                    ],
+                },
             }
         }
     )
@@ -110,6 +126,10 @@ class PredictionResponse(BaseModel):
     risk_level: str = Field(..., description="Risk classification: LOW, MEDIUM, HIGH, or UNKNOWN")
     model_version: str = Field(..., description="Identifier of the prediction model implementation")
     explanation: Optional[ExplanationResponse] = Field(default=None, description="SHAP explainability results")
+    recommendations: Optional[RecommendationResponse] = Field(
+        default=None,
+        description="Deterministic preventive-maintenance recommendations from RecommendationEngine",
+    )
 
 
 class HealthResponse(BaseModel):

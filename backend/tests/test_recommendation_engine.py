@@ -14,10 +14,11 @@ import unittest
 from dataclasses import dataclass
 from typing import List
 
-# Ensure app/ is on the path so imports resolve without installing the package.
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
+# Add backend/ root so that 'from app.xxx import' resolves correctly —
+# matching how uvicorn runs the application.
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from services.recommendation_engine import (
+from app.services.recommendation_engine import (
     generate_recommendations,
     TOOL_WEAR_ELEVATED,
     TOOL_WEAR_CRITICAL,
@@ -29,7 +30,7 @@ from services.recommendation_engine import (
     SHAP_MIN_CONTRIBUTION,
     SHAP_MULTI_FACTOR_COUNT,
 )
-from schemas.recommendation import RecommendationResponse, RecommendationItem
+from app.schemas.recommendation import RecommendationResponse, RecommendationItem
 
 
 @dataclass
