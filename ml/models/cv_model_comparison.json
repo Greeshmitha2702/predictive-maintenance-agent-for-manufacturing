@@ -1,0 +1,21 @@
+{
+  "winning_model": "Balanced Random Forest",
+  "cv_comparison": [
+    {
+      "Model": "Balanced Random Forest",
+      "CV Recall": 0.8119,
+      "CV Precision": 0.9238,
+      "CV F1": 0.864,
+      "CV PR-AUC": 0.8872,
+      "CV ROC-AUC": 0.9754
+    },
+    {
+      "Model": "SMOTE + Random Forest",
+      "CV Recall": 0.8266,
+      "CV Precision": 0.7197,
+      "CV F1": 0.7684,
+      "CV PR-AUC": 0.8592,
+      "CV ROC-AUC": 0.977
+    }
+  ]
+}

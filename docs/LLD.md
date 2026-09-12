@@ -120,35 +120,34 @@ The target is **not supplied by the user during prediction**.
 
 # 4. Feature Engineering
 
-The preprocessing pipeline may create derived features.
+The final preprocessing pipeline creates the following derived features.
 
 ## 4.1 Temperature Difference
 
-```
+```text
 temperature_difference =
     process_temperature - air_temperature
 ```
 
 Purpose:
 
-Capture the difference between operating/process temperature and ambient/air temperature.
+Capture the difference between operating/process temperature and
+ambient/air temperature.
 
----
-
-## 4.2 Mechanical Power-Related Feature
-
-Potential feature:
-
-```
-mechanical_power ≈ torque × rotational_speed
+```text
+mechanical_power_W =
+    torque × rotational_speed × (2π / 60)
 ```
 
-The exact physical unit conversion must be handled correctly if this feature is retained.
+This converts rotational speed from revolutions per minute to angular
+velocity and produces a mechanical-power-related feature.
 
-This feature is **experimental**.
+```text
+overstrain_index =
+    tool_wear × torque
+```
 
-It will only be included in the final model if validation shows meaningful improvement.
-
+This combines accumulated tool wear with mechanical load.
 ---
 
 # 5. Features Excluded From Prediction
@@ -281,16 +280,29 @@ Binary classification.
 
 ## 8.2 Candidate Algorithms
 
-The following models will be evaluated:
+The following classification algorithms were considered during model
+selection:
 
 1. Logistic Regression
 2. Decision Tree
 3. Random Forest
 4. XGBoost
 
-The final model will be selected based on experimental performance.
+The final implemented classifier is **Random Forest**.
 
----
+The final selected pipeline uses:
+
+```text
+Domain Feature Engineering
+        ↓
+One-Hot Encoding
+        ↓
+StandardScaler
+        ↓
+Random Forest
+        ↓
+class_weight="balanced"
+```
 
 # 9. Model Selection Criteria
 
@@ -317,45 +329,33 @@ because missing an actual machine failure can be more costly than generating a f
 
 The final selection should consider both performance and generalization.
 
+### Final Selection
+
+The selected configuration was:
+
+**One-Hot Encoding + StandardScaler + Balanced Random Forest**
+
+This configuration provided the strongest overall balance across PR-AUC,
+F1-score, precision and recall in the cross-validation comparison.
+
+The final classification threshold was subsequently tuned to **0.49** using
+out-of-fold validation.
+
 ---
 
 # 10. Class Imbalance Handling
 
-Initial strategy:
+The dataset contains substantially fewer failure cases than normal cases.
 
-### Class weights
+Two imbalance-handling strategies were experimentally evaluated:
 
-Models that support class weighting will be configured to give greater importance to the minority failure class.
+### 1. Class-balanced Random Forest
 
-If performance remains inadequate, the team may evaluate:
+The Random Forest classifier uses:
 
-### SMOTE
-
-But:
-
+```text
+class_weight="balanced"
 ```
-❌ Incorrect
-
-Split → SMOTE → Train/Test
-```
-
-Instead:
-
-```
-Dataset
-   ↓
-Train/Test Split
-   ↓
-Training folds
-   ↓
-SMOTE
-   ↓
-Model training
-```
-
-SMOTE must never be applied to the test set.
-
----
 
 # 11. Failure Prediction Output
 
@@ -733,12 +733,12 @@ Exact domain ranges can be established from the dataset during implementation.
       {
         "feature":"tool_wear",
         "contribution":0.24,
-        "direction":"increases_risk"
+        "direction":"increases_failure_risk"
       },
       {
         "feature":"torque",
         "contribution":0.18,
-        "direction":"increases_risk"
+        "direction":"increases_failure_risk"
       }
     ]
   },

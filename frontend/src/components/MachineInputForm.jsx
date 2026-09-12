@@ -15,8 +15,8 @@ function MachineInputForm({ onAnalyze, onLoading, onError }) {
   // Store validation error messages.
   const [error, setError] = useState("");
 
-  // Store whether a prediction request is running.
-  const [loading, setLoading] = useState(false);
+  // Prevent duplicate submissions while a request is running.
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Update the corresponding field whenever the user types.
   const handleChange = (event) => {
@@ -33,14 +33,15 @@ function MachineInputForm({ onAnalyze, onLoading, onError }) {
   };
 
   // Handle form submission.
-  const handleSubmit = async (event) => {
-    // Prevent another submission while a request is running.
-    if (loading) {
-      return;
-    }
+ // Handle form submission.
+const handleSubmit = async (event) => {
+  // Prevent the browser from refreshing the page.
+  event.preventDefault();
 
-    // Prevent the browser from refreshing the page.
-    event.preventDefault();
+  // Prevent concurrent submissions.
+  if (isSubmitting) {
+    return;
+  }
 
     // Check whether all fields are filled.
     if (
@@ -65,30 +66,46 @@ function MachineInputForm({ onAnalyze, onLoading, onError }) {
       tool_wear: Number(formData.tool_wear),
     };
 
+    // Reject invalid or non-finite numeric values.
 if (
   !Number.isFinite(machineData.air_temperature) ||
-  machineData.air_temperature <= 0 ||
   !Number.isFinite(machineData.process_temperature) ||
-  machineData.process_temperature <= 0 ||
   !Number.isFinite(machineData.rotational_speed) ||
-  machineData.rotational_speed <= 0 ||
   !Number.isFinite(machineData.torque) ||
-  machineData.torque <= 0 ||
-  !Number.isFinite(machineData.tool_wear) ||
-  machineData.tool_wear < 0
+  !Number.isFinite(machineData.tool_wear)
 ) {
-  setError("Please enter valid machine values.");
-  onError("Please enter valid machine values.");
+  setError("Please enter valid numeric values.");
+  onError("Please enter valid numeric values.");
   return;
 }
 
+// Temperatures must be greater than zero.
+if (
+  machineData.air_temperature <= 0 ||
+  machineData.process_temperature <= 0
+) {
+  setError("Temperature values must be greater than zero.");
+  onError("Temperature values must be greater than zero.");
+  return;
+}
+
+// Check machine-specific value ranges.
+if (
+  machineData.rotational_speed <= 0 ||
+  machineData.torque <= 0 ||
+  machineData.tool_wear < 0
+) {
+  setError("Please enter valid positive machine values.");
+  onError("Please enter valid positive machine values.");
+  return;
+}
     // Clear previous errors.
     setError("");
     onError("");
 
     try {
-      // Prevent another submission while prediction is running.
-      setLoading(true);
+      // Prevent another submission while this request is running.
+      setIsSubmitting(true);
 
       // Tell the Dashboard that analysis has started.
       onLoading(true);
@@ -104,7 +121,7 @@ if (
       onError("Unable to analyze the machine.");
     } finally {
       // Stop the loading state after the request finishes.
-      setLoading(false);
+      setIsSubmitting(false);
       onLoading(false);
     }
   };
@@ -139,7 +156,6 @@ if (
             id="air_temperature"
             name="air_temperature"
             type="number"
-            min="0"
             step="any"
             value={formData.air_temperature}
             onChange={handleChange}
@@ -157,7 +173,6 @@ if (
             id="process_temperature"
             name="process_temperature"
             type="number"
-            min="0"
             step="any"
             value={formData.process_temperature}
             onChange={handleChange}
@@ -175,8 +190,8 @@ if (
             id="rotational_speed"
             name="rotational_speed"
             type="number"
-            min="0"
             step="any"
+            min="1"
             value={formData.rotational_speed}
             onChange={handleChange}
             placeholder="e.g. 1550"
@@ -191,8 +206,8 @@ if (
             id="torque"
             name="torque"
             type="number"
-            min="0"
             step="any"
+            min="0"
             value={formData.torque}
             onChange={handleChange}
             placeholder="e.g. 42.3"
@@ -207,8 +222,8 @@ if (
             id="tool_wear"
             name="tool_wear"
             type="number"
-            min="0"
             step="any"
+            min="0"
             value={formData.tool_wear}
             onChange={handleChange}
             placeholder="e.g. 120"
@@ -222,9 +237,9 @@ if (
         <button
           type="submit"
           className="analyze-button"
-          disabled={loading}
+          disabled={isSubmitting}
         >
-          {loading ? "Analyzing..." : "Analyze Machine"}
+          {isSubmitting ? "Analyzing..." : "Analyze Machine"}
         </button>
       </div>
 

@@ -41,9 +41,9 @@ function Dashboard({ predictionResult, setPredictionResult }) {
 
   // Save the current analysis in browser localStorage.
   const handleSave = () => {
-  if (!predictionResult || saved) {
-    return;
-  }
+    if (!predictionResult || saved) {
+      return;
+    }
 
     // Get previous saved analyses.
 let history = [];

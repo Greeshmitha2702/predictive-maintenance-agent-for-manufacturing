@@ -34,26 +34,25 @@ export async function predictMachine(machineData) {
     return new Promise((resolve) => {
       setTimeout(() => {
         resolve({
-          machine: {
-            type: machineData.type,
-          },
-          anomaly: {
-            is_anomaly: true,
-            score: -0.31,
-          },
-          failure_prediction: {
-            predicted_failure: true,
-            probability: 0.82,
-            risk_level: "HIGH",
-          },
+          failure_probability: 0.82,
+          failure_predicted: true,
+          is_anomaly: true,
+          anomaly_score: -0.31,
+          model_version: "mock-v1",
           explanation: {
             top_factors: [
               {
-                feature: "tool_wear",
-                contribution: 0.24,
+                feature: "Torque [Nm]",
+                contribution: 0.1199,
                 direction: "increases_failure_risk",
               },
+              {
+                feature: "Tool wear [min]",
+                contribution: -0.0821,
+                direction: "decreases_failure_risk",
+              },
             ],
+            disclaimer: "Mock explanation for local frontend development.",
           },
           recommendations: [
             "Inspect tool condition and consider tool replacement.",
