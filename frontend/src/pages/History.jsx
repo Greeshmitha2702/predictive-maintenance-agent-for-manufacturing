@@ -1,10 +1,17 @@
 import { useState } from "react";
 
 function History() {
-  // Read saved analyses from localStorage.
-  const [history, setHistory] = useState(
-    JSON.parse(localStorage.getItem("predictionHistory")) || []
-  );
+  // Safely read saved analyses from localStorage.
+  const [history, setHistory] = useState(() => {
+    try {
+      const savedHistory = localStorage.getItem("predictionHistory");
+      const parsedHistory = savedHistory ? JSON.parse(savedHistory) : [];
+
+      return Array.isArray(parsedHistory) ? parsedHistory : [];
+    } catch {
+      return [];
+    }
+  });
 
   // Delete all saved history.
   const clearHistory = () => {
@@ -26,7 +33,6 @@ function History() {
         </p>
       </div>
 
-
       {/* Show message when there is no history */}
       {history.length === 0 && (
         <section className="machine-card">
@@ -37,7 +43,6 @@ function History() {
           </p>
         </section>
       )}
-
 
       {/* Display saved analyses */}
       {history.length > 0 && (
@@ -56,7 +61,6 @@ function History() {
                 </h3>
               </div>
 
-
               <div className="history-details">
 
                 <div>
@@ -67,7 +71,6 @@ function History() {
                   </strong>
                 </div>
 
-
                 <div>
                   <span>Risk Level</span>
 
@@ -75,7 +78,6 @@ function History() {
                     {item.result.failure_prediction.risk_level}
                   </strong>
                 </div>
-
 
                 <div>
                   <span>Anomaly</span>
@@ -94,7 +96,6 @@ function History() {
 
         </section>
       )}
-
 
       {/* Clear entire history */}
       {history.length > 0 && (
