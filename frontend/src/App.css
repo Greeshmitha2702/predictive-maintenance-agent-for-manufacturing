@@ -1540,3 +1540,181 @@ select {
     width: 100%;
   }
 }
+
+
+/* =====================================================
+   RECOMMENDATIONS (E2E-2: Real backend integration)
+   ===================================================== */
+
+.recommendation-section {
+  margin-top: 24px;
+}
+
+.recommendation-section h2 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f1f3d;
+  margin: 0 0 6px;
+}
+
+.recommendation-urgency {
+  font-size: 0.9rem;
+  color: #444;
+  font-style: italic;
+  margin: 0 0 16px;
+}
+
+.root-cause-indicators {
+  background: #f3f7fb;
+  border-left: 3px solid #3b82f6;
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+}
+
+.root-cause-indicators ul {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+
+.root-cause-indicators li {
+  font-size: 0.85rem;
+  color: #444;
+  margin-bottom: 4px;
+}
+
+.recommendation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.recommendation-card {
+  background: #ffffff;
+  border: 1px solid #d9e8f7;
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.recommendation-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.recommendation-card-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #0f1f3d;
+  flex: 1;
+}
+
+.recommendation-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.recommendation-severity,
+.recommendation-category {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.severity-critical {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.severity-warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.severity-info {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.recommendation-category {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.recommendation-action {
+  font-size: 0.875rem;
+  color: #374151;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* SHAP */
+
+.shap-explanation {
+  margin-top: 24px;
+}
+
+.shap-explanation h2 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f1f3d;
+  margin: 0 0 12px;
+}
+
+.shap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.shap-item {
+  background: #ffffff;
+  border: 1px solid #d9e8f7;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.shap-feature {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0f1f3d;
+  margin-bottom: 6px;
+}
+
+.shap-bar {
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.shap-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.shap-bar-fill.positive {
+  background: #ef4444;
+}
+
+.shap-bar-fill.negative {
+  background: #22c55e;
+}
+
+.shap-impact,
+.shap-direction {
+  font-size: 0.8rem;
+  margin: 2px 0 0;
+  color: #555;
+}

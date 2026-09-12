@@ -65,7 +65,9 @@ function Analysis({ predictionResult }) {
           />
 
           <RecommendationSection
-            recommendations={predictionResult.recommendations || []}
+            recommendations={predictionResult.recommendations?.recommendations || []}
+            urgency={predictionResult.recommendations?.urgency}
+            rootCauseIndicators={predictionResult.recommendations?.root_cause_indicators || []}
           />
         </section>
       )}
