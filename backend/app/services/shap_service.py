@@ -12,8 +12,8 @@ ML_SRC_DIR = os.path.join(PROJECT_ROOT, "ml", "src")
 if ML_SRC_DIR not in sys.path:
     sys.path.insert(0, ML_SRC_DIR)
 
-from schemas.prediction import ExplanationResponse, FeatureContribution
-from services.failure_service import get_failure_service
+from app.schemas.prediction import ExplanationResponse, FeatureContribution
+from app.services.failure_service import get_failure_service
 
 logger = logging.getLogger(__name__)
 

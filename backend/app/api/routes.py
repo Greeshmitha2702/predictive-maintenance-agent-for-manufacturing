@@ -1,8 +1,8 @@
 import logging
 from fastapi import APIRouter, HTTPException, status
 
-from agent.predictive_maintenance_agent import get_agent
-from schemas.prediction import (
+from app.agent.predictive_maintenance_agent import get_agent
+from app.schemas.prediction import (
     HealthResponse,
     PredictionRequest,
     PredictionResponse,

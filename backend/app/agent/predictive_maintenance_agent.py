@@ -1,10 +1,10 @@
 from typing import Dict, Any, Optional
 
-from schemas.prediction import PredictionRequest, PredictionResponse, ExplanationResponse
-from services.failure_service import FailurePredictionService, get_failure_service
-from services.anomaly_service import AnomalyDetectionService, get_anomaly_service
-from services.shap_service import ShapExplainabilityService, get_shap_service
-from services.risk_service import RiskAssessmentService, get_risk_service
+from app.schemas.prediction import PredictionRequest, PredictionResponse, ExplanationResponse
+from app.services.failure_service import FailurePredictionService, get_failure_service
+from app.services.anomaly_service import AnomalyDetectionService, get_anomaly_service
+from app.services.shap_service import ShapExplainabilityService, get_shap_service
+from app.services.risk_service import RiskAssessmentService, get_risk_service
 
 
 class PredictiveMaintenanceAgent:

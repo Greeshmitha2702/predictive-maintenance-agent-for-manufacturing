@@ -15,7 +15,7 @@ Architecture boundaries:
 from math import pi
 from typing import Any, Dict, List, Optional
 
-from schemas.recommendation import RecommendationItem, RecommendationResponse
+from app.schemas.recommendation import RecommendationItem, RecommendationResponse
 
 
 # ---------------------------------------------------------------------------
