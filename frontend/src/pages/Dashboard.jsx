@@ -46,8 +46,20 @@ function Dashboard({ predictionResult, setPredictionResult }) {
   }
 
     // Get previous saved analyses.
-    const history =
-      JSON.parse(localStorage.getItem("predictionHistory")) || [];
+let history = [];
+
+try {
+  const savedHistory = localStorage.getItem("predictionHistory");
+  const parsedHistory = savedHistory
+    ? JSON.parse(savedHistory)
+    : [];
+
+  if (Array.isArray(parsedHistory)) {
+    history = parsedHistory;
+  }
+} catch {
+  history = [];
+}
 
     // Add the current analysis to history.
     const newAnalysis = {
