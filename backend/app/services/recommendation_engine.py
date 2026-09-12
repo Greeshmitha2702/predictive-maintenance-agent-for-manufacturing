@@ -16,8 +16,24 @@ SHAP_MIN_CONTRIBUTION = 0.05
 
 
 def _normalise_feature_name(feature: str) -> str:
-    """Normalise feature names so model/schema naming differences are handled."""
-    return feature.strip().lower().replace(" ", "_").replace("-", "_")
+    feature = feature.strip().lower()
+
+    feature_aliases = {
+        "tool wear [min]": "tool_wear",
+        "tool_wear [min]": "tool_wear",
+        "torque [nm]": "torque",
+        "rotational speed [rpm]": "rotational_speed",
+        "air temperature [k]": "air_temperature",
+        "process temperature [k]": "process_temperature",
+        "temperature_difference": "temperature_difference",
+        "mechanical_power_w": "mechanical_power_w",
+        "overstrain_index": "overstrain_index",
+    }
+
+    return feature_aliases.get(
+        feature,
+        feature.replace(" ", "_").replace("-", "_")
+    )
 
 
 def _positive_shap_features(shap_contributors: List[Any]) -> set[str]:
