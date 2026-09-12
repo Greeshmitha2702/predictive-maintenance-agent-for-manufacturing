@@ -87,6 +87,7 @@ class PredictionResponse(BaseModel):
                 "failure_predicted": False,
                 "is_anomaly": False,
                 "anomaly_score": 0.0,
+                "risk_level": "LOW",
                 "model_version": "Random Forest (Threshold: 0.4900)",
                 "explanation": {
                     "top_factors": [
@@ -106,6 +107,7 @@ class PredictionResponse(BaseModel):
     failure_predicted: bool = Field(..., description="Thresholded binary failure prediction")
     is_anomaly: bool = Field(..., description="Boolean anomaly detection status")
     anomaly_score: float = Field(..., description="Isolation Forest decision score")
+    risk_level: str = Field(..., description="Risk classification: LOW, MEDIUM, HIGH, or UNKNOWN")
     model_version: str = Field(..., description="Identifier of the prediction model implementation")
     explanation: Optional[ExplanationResponse] = Field(default=None, description="SHAP explainability results")
 
