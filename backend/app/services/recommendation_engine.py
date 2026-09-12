@@ -1,105 +1,329 @@
-from typing import Dict, List, Any
-from app.schemas.recommendation import RecommendationResponse, RecommendationItem
+from math import pi
+from typing import Any, Dict, List
+
+from app.schemas.recommendation import RecommendationItem, RecommendationResponse
+
+
+# Prototype operating thresholds.
+# The LLD defines the rules but does not specify numeric operating thresholds,
+# so these remain configurable here.
+TOOL_WEAR_THRESHOLD = 200.0
+TORQUE_THRESHOLD = 65.0
+MECHANICAL_POWER_THRESHOLD = 9000.0
+
+# Prototype minimum SHAP magnitude for a "strong" contributor.
+SHAP_MIN_CONTRIBUTION = 0.05
+
+
+def _normalise_feature_name(feature: str) -> str:
+    """Normalise feature names so model/schema naming differences are handled."""
+    return feature.strip().lower().replace(" ", "_").replace("-", "_")
+
+
+def _positive_shap_features(shap_contributors: List[Any]) -> set[str]:
+    """
+    Return features that positively contribute to failure risk.
+
+    A feature is considered relevant only when:
+    - its SHAP direction says it increases failure risk, and
+    - its signed contribution is sufficiently positive.
+    """
+    positive_features: set[str] = set()
+
+    for contributor in shap_contributors:
+        feature = getattr(contributor, "feature", None)
+        contribution = getattr(contributor, "contribution", None)
+        direction = getattr(contributor, "direction", None)
+
+        if not feature or contribution is None or direction is None:
+            continue
+
+        if (
+            direction == "increases_failure_risk"
+            and float(contribution) >= SHAP_MIN_CONTRIBUTION
+        ):
+            positive_features.add(_normalise_feature_name(feature))
+
+    return positive_features
+
 
 def generate_recommendations(
-    failure_probability: float,
+    risk_level: str,
     is_anomaly: bool,
-    top_shap_features: List[str],
-    machine_params: Dict[str, float]
+    shap_contributors: List[Any],
+    machine_params: Dict[str, float],
 ) -> RecommendationResponse:
-    if failure_probability >= 0.70:
-        risk_level = "CRITICAL"
-        urgency = "Immediate line halt / priority service required"
-    elif failure_probability >= 0.35:
-        risk_level = "WARNING"
-        urgency = "Schedule maintenance within 24–48 operating hours"
-    elif is_anomaly:
-        risk_level = "ANOMALOUS"
-        urgency = "Perform inspection and sensor check before next shift"
-    else:
-        risk_level = "HEALTHY"
-        urgency = "Continue standard routine inspection schedule"
+    """
+    Generate deterministic preventive-maintenance recommendations.
+
+    Risk classification is owned by the RiskAssessment layer.
+    This engine only consumes the resulting LOW/MEDIUM/HIGH risk level.
+
+    The engine does not calculate SHAP values or use an ML model.
+    """
+
+    if risk_level not in {"LOW", "MEDIUM", "HIGH"}:
+        raise ValueError(
+            "risk_level must be one of: LOW, MEDIUM, HIGH"
+        )
+
+    required_fields = {
+        "air_temperature",
+        "process_temperature",
+        "rotational_speed",
+        "torque",
+        "tool_wear",
+    }
+
+    missing_fields = required_fields - set(machine_params.keys())
+
+    if missing_fields:
+        raise ValueError(
+            "Missing required machine parameters: "
+            + ", ".join(sorted(missing_fields))
+        )
+
+    # Use the actual backend API fields directly.
+    air_temperature = float(machine_params["air_temperature"])
+    process_temperature = float(machine_params["process_temperature"])
+    rotational_speed = float(machine_params["rotational_speed"])
+    torque = float(machine_params["torque"])
+    tool_wear = float(machine_params["tool_wear"])
+
+    # Engineered features defined by the project LLD.
+    temperature_difference = process_temperature - air_temperature
+    mechanical_power_w = torque * rotational_speed * (2 * pi / 60)
+    overstrain_index = tool_wear * torque
+
+    positive_shap = _positive_shap_features(shap_contributors)
 
     recommendations: List[RecommendationItem] = []
     root_cause_indicators: List[str] = []
 
-    tool_wear = machine_params.get("Tool wear [min]", machine_params.get("ToolWear", 0.0))
-    torque = machine_params.get("Torque [Nm]", machine_params.get("Torque", 0.0))
-    rpm = machine_params.get("Rotational speed [rpm]", machine_params.get("RotationalSpeed", 0.0))
-    air_temp = machine_params.get("Air temperature [K]", machine_params.get("AirTemp", 300.0))
-    proc_temp = machine_params.get("Process temperature [K]", machine_params.get("ProcessTemp", 310.0))
-    
-    temp_diff = proc_temp - air_temp
-    power_proxy = torque * (rpm * 0.10472)
-    shap_set = set(top_shap_features)
+    # ---------------------------------------------------------
+    # Risk-level urgency
+    # ---------------------------------------------------------
+    if risk_level == "HIGH":
+        urgency = "Prioritize preventive maintenance before the next operating cycle"
+    elif risk_level == "MEDIUM":
+        urgency = "Schedule preventive maintenance within 24–48 operating hours"
+    else:
+        urgency = "Continue standard preventive maintenance schedule"
 
-    # Tool Wear Failure (TWF)
-    if tool_wear >= 200 or "Tool wear [min]" in shap_set or "ToolWear" in shap_set:
-        root_cause_indicators.append(f"Tool wear reached critical threshold: {tool_wear:.1f} min.")
+    # ---------------------------------------------------------
+    # Tool wear
+    #
+    # LLD:
+    # IF tool_wear is high
+    # AND tool_wear is a major positive SHAP contributor
+    # THEN recommend tool inspection/replacement.
+    # ---------------------------------------------------------
+    tool_wear_shap = {
+        "tool_wear",
+        "tool_wear_min",
+        "toolwear",
+    }
+
+    if (
+        tool_wear >= TOOL_WEAR_THRESHOLD
+        and positive_shap.intersection(tool_wear_shap)
+    ):
+        root_cause_indicators.append(
+            f"High tool wear ({tool_wear:.1f} min) is a positive failure-risk contributor."
+        )
+
         recommendations.append(
             RecommendationItem(
                 id="REC-TOOL-001",
                 category="TOOLING",
-                severity="CRITICAL" if failure_probability >= 0.50 else "WARNING",
-                title="Replace Cutting Tool Assembly",
-                action=f"Tool wear is at {tool_wear:.1f} min. Replace cutting bit/insert immediately to avoid breakage."
+                severity="CRITICAL" if risk_level == "HIGH" else "WARNING",
+                title="Inspect or Replace Cutting Tool",
+                action=(
+                    f"Tool wear is {tool_wear:.1f} min and is contributing "
+                    "positively to failure risk. Inspect the cutting tool and "
+                    "replace the insert/bit if wear is confirmed."
+                ),
             )
         )
 
-    # Heat Dissipation Failure (HDF)
-    if (temp_diff < 8.6 and proc_temp > 310) or "Temp_Diff" in shap_set or "Process temperature [K]" in shap_set:
-        root_cause_indicators.append(f"Insufficient heat dissipation: Delta T is {temp_diff:.2f} K.")
+    # ---------------------------------------------------------
+    # Thermal conditions
+    #
+    # Temperature recommendation is driven by a positive SHAP
+    # contribution from a temperature-related feature.
+    # ---------------------------------------------------------
+    temperature_shap = {
+        "air_temperature",
+        "process_temperature",
+        "temperature_difference",
+        "temp_diff",
+        "process_temp",
+        "air_temp",
+    }
+
+    if positive_shap.intersection(temperature_shap):
+        root_cause_indicators.append(
+            "Temperature-related features are positive contributors to failure risk."
+        )
+
         recommendations.append(
             RecommendationItem(
                 id="REC-THRM-002",
                 category="THERMAL",
-                severity="CRITICAL" if failure_probability >= 0.50 else "WARNING",
-                title="Inspect Cooling & Heat Dissipation",
-                action=f"Delta T is {temp_diff:.1f} K. Flush coolant channels, check pump pressure, and clean air filters."
+                severity="CRITICAL" if risk_level == "HIGH" else "WARNING",
+                title="Inspect Cooling and Thermal Conditions",
+                action=(
+                    f"Temperature difference is {temperature_difference:.2f} K. "
+                    "Check cooling flow, coolant condition, pump operation, "
+                    "airflow, and process temperature stability."
+                ),
             )
         )
 
-    # Mechanical Strain / Power (PWF)
-    if power_proxy > 9000 or torque > 65 or "Torque [Nm]" in shap_set or "Torque" in shap_set:
-        root_cause_indicators.append(f"Excessive mechanical load: Torque {torque:.1f} Nm, Power Proxy {power_proxy:.0f} W.")
+    # ---------------------------------------------------------
+    # Mechanical load / torque / power
+    #
+    # Handle both operating boundaries:
+    # - torque
+    # - calculated mechanical power
+    #
+    # A measurement alone is not enough; the corresponding SHAP
+    # feature must also positively contribute to failure risk.
+    # ---------------------------------------------------------
+    mechanical_shap = {
+        "torque",
+        "mechanical_power_w",
+        "mechanical_power",
+        "rotational_speed",
+    }
+
+    high_mechanical_load = (
+        torque >= TORQUE_THRESHOLD
+        or mechanical_power_w >= MECHANICAL_POWER_THRESHOLD
+    )
+
+    if high_mechanical_load and positive_shap.intersection(mechanical_shap):
+        root_cause_indicators.append(
+            f"High mechanical load detected "
+            f"(torque {torque:.1f} Nm, mechanical power {mechanical_power_w:.0f} W)."
+        )
+
         recommendations.append(
             RecommendationItem(
                 id="REC-MECH-003",
                 category="MECHANICAL",
-                severity="CRITICAL" if failure_probability >= 0.50 else "WARNING",
-                title="Inspect Drive Train & Spindle Load",
-                action=f"High torque load detected ({torque:.1f} Nm). Check for mechanical binding and verify feed rate."
+                severity="CRITICAL" if risk_level == "HIGH" else "WARNING",
+                title="Inspect Mechanical Load and Drive Train",
+                action=(
+                    f"Torque is {torque:.1f} Nm and calculated mechanical power "
+                    f"is {mechanical_power_w:.0f} W. Inspect the drive train, "
+                    "spindle/load conditions, mechanical binding, and feed rate."
+                ),
             )
         )
 
-    # Anomaly
-    if is_anomaly and not recommendations:
-        root_cause_indicators.append("Machine telemetry deviates from baseline normal distribution.")
+    # ---------------------------------------------------------
+    # Anomaly + HIGH risk
+    #
+    # This recommendation MUST be generated even if another
+    # recommendation has already been added.
+    # ---------------------------------------------------------
+    if is_anomaly and risk_level == "HIGH":
+        root_cause_indicators.append(
+            "Anomalous machine telemetry is combined with HIGH failure risk."
+        )
+
+        recommendations.append(
+            RecommendationItem(
+                id="REC-ANOM-HIGH-005",
+                category="INSPECTION",
+                severity="CRITICAL",
+                title="Perform Prompt Machine Inspection",
+                action=(
+                    "Anomaly detection and HIGH failure risk are both present. "
+                    "Prioritize machine inspection, verify sensor readings, "
+                    "and review recent operating conditions before continued operation."
+                ),
+            )
+        )
+
+    # ---------------------------------------------------------
+    # Anomaly without HIGH risk
+    # ---------------------------------------------------------
+    elif is_anomaly:
+        root_cause_indicators.append(
+            "Machine telemetry deviates from the expected operating baseline."
+        )
+
         recommendations.append(
             RecommendationItem(
                 id="REC-ANOM-004",
                 category="INSPECTION",
-                severity="INFO",
-                title="Calibrate Sensors and Log Vibration",
-                action="Operating envelope is unusual without imminent failure. Recalibrate sensors and inspect for vibration."
+                severity="WARNING" if risk_level == "MEDIUM" else "INFO",
+                title="Inspect Sensors and Operating Conditions",
+                action=(
+                    "Review sensor readings, recalibrate sensors if necessary, "
+                    "and inspect for unusual vibration or operating conditions."
+                ),
             )
         )
 
-    # Normal state
+    # ---------------------------------------------------------
+    # Risk-aware fallback
+    #
+    # Never return a healthy/normal recommendation for HIGH risk.
+    # ---------------------------------------------------------
     if not recommendations:
-        recommendations.append(
-            RecommendationItem(
-                id="REC-HLTH-000",
-                category="INSPECTION",
-                severity="INFO",
-                title="Standard Operating Verification",
-                action="All parameters within acceptable tolerances. Maintain standard shift logging."
+        if risk_level == "HIGH":
+            root_cause_indicators.append(
+                "HIGH failure risk requires preventive inspection even without a specific rule match."
             )
-        )
+
+            recommendations.append(
+                RecommendationItem(
+                    id="REC-HIGH-000",
+                    category="INSPECTION",
+                    severity="CRITICAL",
+                    title="Prioritize Preventive Inspection",
+                    action=(
+                        "Failure risk is HIGH. Perform a priority preventive "
+                        "inspection and review machine operating conditions "
+                        "before the next operating cycle."
+                    ),
+                )
+            )
+
+        elif risk_level == "MEDIUM":
+            recommendations.append(
+                RecommendationItem(
+                    id="REC-MED-000",
+                    category="INSPECTION",
+                    severity="WARNING",
+                    title="Schedule Preventive Inspection",
+                    action=(
+                        "Failure risk is MEDIUM. Schedule a preventive inspection "
+                        "and continue monitoring machine parameters."
+                    ),
+                )
+            )
+
+        else:
+            recommendations.append(
+                RecommendationItem(
+                    id="REC-LOW-000",
+                    category="INSPECTION",
+                    severity="INFO",
+                    title="Continue Standard Maintenance",
+                    action=(
+                        "Failure risk is LOW and no specific maintenance trigger "
+                        "was identified. Continue standard inspection and shift logging."
+                    ),
+                )
+            )
 
     return RecommendationResponse(
         risk_level=risk_level,
         urgency=urgency,
         root_cause_indicators=root_cause_indicators,
-        recommendations=recommendations
+        recommendations=recommendations,
     )
