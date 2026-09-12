@@ -2,7 +2,7 @@ import logging
 import math
 from typing import Optional
 
-from models.risk_config import (
+from app.models.risk_config import (
     RISK_HIGH_THRESHOLD,
     RISK_MEDIUM_THRESHOLD,
     RISK_LEVEL_HIGH,
