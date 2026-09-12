@@ -1,6 +1,10 @@
 function LoadingState() {
   return (
-    <section className="machine-card loading-card">
+    <section
+      className="machine-card loading-card"
+      role="status"
+      aria-live="polite"
+    >
       <div className="loading-spinner"></div>
 
       <h3>Analyzing Machine...</h3>

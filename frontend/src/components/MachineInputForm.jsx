@@ -27,19 +27,21 @@ function MachineInputForm({ onAnalyze, onLoading, onError }) {
       [name]: value,
     });
 
-    // Remove the old error when the user changes a value.
+    // Clear both form and Dashboard errors when the user changes a value.
     setError("");
+    onError("");
   };
 
   // Handle form submission.
-  const handleSubmit = async (event) => {
-    // Prevent the browser from refreshing the page.
-    event.preventDefault();
+ // Handle form submission.
+const handleSubmit = async (event) => {
+  // Prevent the browser from refreshing the page.
+  event.preventDefault();
 
-    // Prevent concurrent submissions.
-    if (isSubmitting) {
-      return;
-    }
+  // Prevent concurrent submissions.
+  if (isSubmitting) {
+    return;
+  }
 
     // Check whether all fields are filled.
     if (
@@ -50,6 +52,7 @@ function MachineInputForm({ onAnalyze, onLoading, onError }) {
       formData.tool_wear === ""
     ) {
       setError("Please fill in all machine parameters.");
+      onError("Please fill in all machine parameters.");
       return;
     }
 
@@ -64,36 +67,38 @@ function MachineInputForm({ onAnalyze, onLoading, onError }) {
     };
 
     // Reject invalid or non-finite numeric values.
-    if (
-      !Number.isFinite(machineData.air_temperature) ||
-      !Number.isFinite(machineData.process_temperature) ||
-      !Number.isFinite(machineData.rotational_speed) ||
-      !Number.isFinite(machineData.torque) ||
-      !Number.isFinite(machineData.tool_wear)
-    ) {
-      setError("Please enter valid numeric values.");
-      return;
-    }
+if (
+  !Number.isFinite(machineData.air_temperature) ||
+  !Number.isFinite(machineData.process_temperature) ||
+  !Number.isFinite(machineData.rotational_speed) ||
+  !Number.isFinite(machineData.torque) ||
+  !Number.isFinite(machineData.tool_wear)
+) {
+  setError("Please enter valid numeric values.");
+  onError("Please enter valid numeric values.");
+  return;
+}
 
-    // Temperatures must be greater than zero.
-    if (
-      machineData.air_temperature <= 0 ||
-      machineData.process_temperature <= 0
-    ) {
-      setError("Temperature values must be greater than zero.");
-      return;
-    }
+// Temperatures must be greater than zero.
+if (
+  machineData.air_temperature <= 0 ||
+  machineData.process_temperature <= 0
+) {
+  setError("Temperature values must be greater than zero.");
+  onError("Temperature values must be greater than zero.");
+  return;
+}
 
-    // Check machine-specific value ranges.
-    if (
-      machineData.rotational_speed <= 0 ||
-      machineData.torque <= 0 ||
-      machineData.tool_wear < 0
-    ) {
-      setError("Please enter valid positive machine values.");
-      return;
-    }
-
+// Check machine-specific value ranges.
+if (
+  machineData.rotational_speed <= 0 ||
+  machineData.torque <= 0 ||
+  machineData.tool_wear < 0
+) {
+  setError("Please enter valid positive machine values.");
+  onError("Please enter valid positive machine values.");
+  return;
+}
     // Clear previous errors.
     setError("");
     onError("");
