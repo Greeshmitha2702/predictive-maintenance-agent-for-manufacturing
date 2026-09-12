@@ -51,7 +51,7 @@ export async function predictMachine(machineData) {
               {
                 feature: "tool_wear",
                 contribution: 0.24,
-                direction: "increases_risk",
+                direction: "increases_failure_risk",
               },
             ],
           },
