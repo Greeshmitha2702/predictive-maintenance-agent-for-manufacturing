@@ -65,20 +65,22 @@ function MachineInputForm({ onAnalyze, onLoading, onError }) {
       tool_wear: Number(formData.tool_wear),
     };
 
-    // Check that every numeric value is finite and positive.
-    const numericValues = [
-      machineData.air_temperature,
-      machineData.process_temperature,
-      machineData.rotational_speed,
-      machineData.torque,
-      machineData.tool_wear,
-    ];
-
-    if (numericValues.some((value) => !Number.isFinite(value) || value <= 0)) {
-      setError("Please enter valid positive machine values.");
-      onError("Please enter valid positive machine values.");
-      return;
-    }
+if (
+  !Number.isFinite(machineData.air_temperature) ||
+  machineData.air_temperature <= 0 ||
+  !Number.isFinite(machineData.process_temperature) ||
+  machineData.process_temperature <= 0 ||
+  !Number.isFinite(machineData.rotational_speed) ||
+  machineData.rotational_speed <= 0 ||
+  !Number.isFinite(machineData.torque) ||
+  machineData.torque <= 0 ||
+  !Number.isFinite(machineData.tool_wear) ||
+  machineData.tool_wear < 0
+) {
+  setError("Please enter valid machine values.");
+  onError("Please enter valid machine values.");
+  return;
+}
 
     // Clear previous errors.
     setError("");
