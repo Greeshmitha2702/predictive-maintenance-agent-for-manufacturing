@@ -4,6 +4,10 @@ import { predictMachine } from "../services/api";
 function MachineInputForm({ onAnalyze, onLoading, onError }) {
   // Store all values entered by the user.
   const [formData, setFormData] = useState({
+    // Frontend-only Machine ID.
+    // This is NOT sent to the backend.
+    machine_id: "",
+
     type: "M",
     air_temperature: "",
     process_temperature: "",
@@ -18,7 +22,7 @@ function MachineInputForm({ onAnalyze, onLoading, onError }) {
   // Prevent duplicate submissions while a request is running.
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Update the corresponding field whenever the user types.
+  // Update the corresponding field whenever the user changes a value.
   const handleChange = (event) => {
     const { name, value } = event.target;
 
@@ -27,23 +31,29 @@ function MachineInputForm({ onAnalyze, onLoading, onError }) {
       [name]: value,
     });
 
-    // Clear both form and Dashboard errors when the user changes a value.
+    // Clear form and Dashboard errors when the user changes a value.
     setError("");
     onError("");
   };
 
   // Handle form submission.
- // Handle form submission.
-const handleSubmit = async (event) => {
-  // Prevent the browser from refreshing the page.
-  event.preventDefault();
+  const handleSubmit = async (event) => {
+    // Prevent the browser from refreshing the page.
+    event.preventDefault();
 
-  // Prevent concurrent submissions.
-  if (isSubmitting) {
-    return;
-  }
+    // Prevent concurrent submissions.
+    if (isSubmitting) {
+      return;
+    }
 
-    // Check whether all fields are filled.
+    // Check whether Machine ID is selected.
+    if (formData.machine_id === "") {
+      setError("Please select a Machine ID.");
+      onError("Please select a Machine ID.");
+      return;
+    }
+
+    // Check whether all machine parameter fields are filled.
     if (
       formData.air_temperature === "" ||
       formData.process_temperature === "" ||
@@ -56,7 +66,14 @@ const handleSubmit = async (event) => {
       return;
     }
 
-    // Convert input values from strings to numbers.
+    /*
+      IMPORTANT:
+
+      Machine ID is FRONTEND-ONLY.
+
+      It is NOT included in machineData because the backend
+      API is already integrated and expects the existing fields.
+    */
     const machineData = {
       type: formData.type,
       air_temperature: Number(formData.air_temperature),
@@ -67,38 +84,39 @@ const handleSubmit = async (event) => {
     };
 
     // Reject invalid or non-finite numeric values.
-if (
-  !Number.isFinite(machineData.air_temperature) ||
-  !Number.isFinite(machineData.process_temperature) ||
-  !Number.isFinite(machineData.rotational_speed) ||
-  !Number.isFinite(machineData.torque) ||
-  !Number.isFinite(machineData.tool_wear)
-) {
-  setError("Please enter valid numeric values.");
-  onError("Please enter valid numeric values.");
-  return;
-}
+    if (
+      !Number.isFinite(machineData.air_temperature) ||
+      !Number.isFinite(machineData.process_temperature) ||
+      !Number.isFinite(machineData.rotational_speed) ||
+      !Number.isFinite(machineData.torque) ||
+      !Number.isFinite(machineData.tool_wear)
+    ) {
+      setError("Please enter valid numeric values.");
+      onError("Please enter valid numeric values.");
+      return;
+    }
 
-// Temperatures must be greater than zero.
-if (
-  machineData.air_temperature <= 0 ||
-  machineData.process_temperature <= 0
-) {
-  setError("Temperature values must be greater than zero.");
-  onError("Temperature values must be greater than zero.");
-  return;
-}
+    // Temperatures must be greater than zero.
+    if (
+      machineData.air_temperature <= 0 ||
+      machineData.process_temperature <= 0
+    ) {
+      setError("Temperature values must be greater than zero.");
+      onError("Temperature values must be greater than zero.");
+      return;
+    }
 
-// Check machine-specific value ranges.
-if (
-  machineData.rotational_speed <= 0 ||
-  machineData.torque <= 0 ||
-  machineData.tool_wear < 0
-) {
-  setError("Please enter valid positive machine values.");
-  onError("Please enter valid positive machine values.");
-  return;
-}
+    // Check machine-specific value ranges.
+    if (
+      machineData.rotational_speed <= 0 ||
+      machineData.torque <= 0 ||
+      machineData.tool_wear < 0
+    ) {
+      setError("Please enter valid positive machine values.");
+      onError("Please enter valid positive machine values.");
+      return;
+    }
+
     // Clear previous errors.
     setError("");
     onError("");
@@ -110,21 +128,35 @@ if (
       // Tell the Dashboard that analysis has started.
       onLoading(true);
 
-      // Send machine data to the prediction service.
+      // Send ONLY the backend-supported machine parameters.
       const result = await predictMachine(machineData);
 
-      // Send the prediction result back to the Dashboard.
-      onAnalyze(result);
-    } catch (error) {
-  // Show the specific error message returned by the API.
-  const message =
-    error instanceof Error
-      ? error.message
-      : "Unable to analyze the machine.";
+      /*
+        Attach the frontend-only Machine ID to the result.
 
-  setError(message);
-  onError(message);
-}finally {
+        The backend result is not modified before being sent.
+        We simply add Machine ID on the frontend so that
+        Analysis and History can identify the machine.
+      */
+      const resultWithMachine = {
+        ...result,
+        machine_id: formData.machine_id,
+        machine_type: formData.type,
+      };
+
+      // Send the prediction result + frontend Machine ID
+      // back to the Dashboard.
+      onAnalyze(resultWithMachine);
+    } catch (error) {
+      // Show the specific error message returned by the API.
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unable to analyze the machine.";
+
+      setError(message);
+      onError(message);
+    } finally {
       // Stop the loading state after the request finishes.
       setIsSubmitting(false);
       onLoading(false);
@@ -135,7 +167,30 @@ if (
     <form onSubmit={handleSubmit}>
       <div className="form-grid">
 
-        {/* Machine type */}
+        {/* =====================================================
+            MACHINE ID - FRONTEND ONLY
+            ===================================================== */}
+        <div className="form-field">
+          <label htmlFor="machine_id">Machine ID</label>
+
+          <select
+            id="machine_id"
+            name="machine_id"
+            value={formData.machine_id}
+            onChange={handleChange}
+          >
+            <option value="">Select Machine ID</option>
+            <option value="M-001">M-001</option>
+            <option value="M-002">M-002</option>
+            <option value="M-003">M-003</option>
+            <option value="M-004">M-004</option>
+            <option value="M-005">M-005</option>
+          </select>
+        </div>
+
+        {/* =====================================================
+            MACHINE TYPE
+            ===================================================== */}
         <div className="form-field">
           <label htmlFor="type">Machine Type</label>
 
@@ -151,7 +206,9 @@ if (
           </select>
         </div>
 
-        {/* Air temperature */}
+        {/* =====================================================
+            AIR TEMPERATURE
+            ===================================================== */}
         <div className="form-field">
           <label htmlFor="air_temperature">
             Air Temperature (K)
@@ -168,7 +225,9 @@ if (
           />
         </div>
 
-        {/* Process temperature */}
+        {/* =====================================================
+            PROCESS TEMPERATURE
+            ===================================================== */}
         <div className="form-field">
           <label htmlFor="process_temperature">
             Process Temperature (K)
@@ -185,7 +244,9 @@ if (
           />
         </div>
 
-        {/* Rotational speed */}
+        {/* =====================================================
+            ROTATIONAL SPEED
+            ===================================================== */}
         <div className="form-field">
           <label htmlFor="rotational_speed">
             Rotational Speed (rpm)
@@ -203,9 +264,13 @@ if (
           />
         </div>
 
-        {/* Torque */}
+        {/* =====================================================
+            TORQUE
+            ===================================================== */}
         <div className="form-field">
-          <label htmlFor="torque">Torque (Nm)</label>
+          <label htmlFor="torque">
+            Torque (Nm)
+          </label>
 
           <input
             id="torque"
@@ -219,9 +284,13 @@ if (
           />
         </div>
 
-        {/* Tool wear */}
+        {/* =====================================================
+            TOOL WEAR
+            ===================================================== */}
         <div className="form-field">
-          <label htmlFor="tool_wear">Tool Wear (min)</label>
+          <label htmlFor="tool_wear">
+            Tool Wear (min)
+          </label>
 
           <input
             id="tool_wear"
@@ -237,7 +306,9 @@ if (
 
       </div>
 
-      {/* Analyze button */}
+      {/* =====================================================
+          ANALYZE BUTTON
+          ===================================================== */}
       <div className="form-actions">
         <button
           type="submit"
@@ -248,7 +319,9 @@ if (
         </button>
       </div>
 
-      {/* Display validation error */}
+      {/* =====================================================
+          VALIDATION ERROR
+          ===================================================== */}
       {error && <p className="error-message">{error}</p>}
     </form>
   );

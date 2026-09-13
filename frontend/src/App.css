@@ -1717,4 +1717,20 @@ select {
   font-size: 0.8rem;
   margin: 2px 0 0;
   color: #555;
-}
+}
+
+.form-field select {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #102a43;
+  font-size: 15px;
+  outline: none;
+}
+
+.form-field select:focus {
+  border-color: #6b9ac4;
+  background: #ffffff;
+}

@@ -46,20 +46,21 @@ function Dashboard({ predictionResult, setPredictionResult }) {
     }
 
     // Get previous saved analyses.
-let history = [];
+    let history = [];
 
-try {
-  const savedHistory = localStorage.getItem("predictionHistory");
-  const parsedHistory = savedHistory
-    ? JSON.parse(savedHistory)
-    : [];
+    try {
+      const savedHistory = localStorage.getItem("predictionHistory");
 
-  if (Array.isArray(parsedHistory)) {
-    history = parsedHistory;
-  }
-} catch {
-  history = [];
-}
+      const parsedHistory = savedHistory
+        ? JSON.parse(savedHistory)
+        : [];
+
+      if (Array.isArray(parsedHistory)) {
+        history = parsedHistory;
+      }
+    } catch {
+      history = [];
+    }
 
     // Add the current analysis to history.
     const newAnalysis = {
@@ -86,10 +87,33 @@ try {
     setError("");
   };
 
+  /*
+    Convert the current backend response into the
+    structure expected by the existing result cards.
+
+    This does NOT change the backend response.
+  */
+  const failurePrediction = predictionResult
+    ? {
+        probability: predictionResult.failure_probability,
+        predicted_failure: predictionResult.failure_predicted,
+        risk_level: predictionResult.risk_level || "N/A",
+      }
+    : null;
+
+  const anomaly = predictionResult
+    ? {
+        is_anomaly: predictionResult.is_anomaly,
+        score: predictionResult.anomaly_score,
+      }
+    : null;
+
   return (
     <main className="dashboard">
 
-      {/* Dashboard heading */}
+      {/* =====================================================
+          DASHBOARD HEADING
+          ===================================================== */}
       <section className="dashboard-title">
         <p className="section-label">MACHINE MONITORING</p>
 
@@ -102,10 +126,13 @@ try {
       </section>
 
 
-      {/* Machine input form */}
+      {/* =====================================================
+          MACHINE INPUT FORM
+          ===================================================== */}
       <section className="machine-card">
 
         <div className="card-heading">
+
           <div>
             <h3>Machine Parameters</h3>
 
@@ -117,6 +144,7 @@ try {
           <span className="status-indicator">
             Ready for Analysis
           </span>
+
         </div>
 
         <MachineInputForm
@@ -128,50 +156,73 @@ try {
       </section>
 
 
-      {/* Loading message */}
+      {/* =====================================================
+          LOADING MESSAGE
+          ===================================================== */}
       {loading && <LoadingState />}
 
 
-      {/* Error message */}
+      {/* =====================================================
+          ERROR MESSAGE
+          ===================================================== */}
       {!loading && <ErrorMessage message={error} />}
 
 
-      {/* Prediction results */}
+      {/* =====================================================
+          PREDICTION RESULTS
+          ===================================================== */}
       {predictionResult && !loading && !error && (
+
         <section className="dashboard-results">
 
+          {/* Results heading */}
           <div className="results-heading">
+
             <div>
-              <p className="section-label">ANALYSIS RESULT</p>
+              <p className="section-label">
+                ANALYSIS RESULT
+              </p>
 
               <h3>Current Machine Status</h3>
+
+              {/* Show selected frontend-only Machine ID */}
+              <p className="machine-result-id">
+                Machine ID:{" "}
+                {predictionResult.machine_id || "Not specified"}
+              </p>
+
             </div>
 
             <span className="result-status">
               Analysis Complete
             </span>
+
           </div>
 
 
-          {/* Result cards */}
+          {/* =================================================
+              RESULT CARDS
+              ================================================= */}
           <div className="results-grid">
 
             <RiskSummary
-              failurePrediction={predictionResult.failure_prediction}
+              failurePrediction={failurePrediction}
             />
 
             <AnomalyCard
-              anomaly={predictionResult.anomaly}
+              anomaly={anomaly}
             />
 
             <FailurePredictionCard
-              failurePrediction={predictionResult.failure_prediction}
+              failurePrediction={failurePrediction}
             />
 
           </div>
 
 
-          {/* Save and Clear buttons */}
+          {/* =================================================
+              SAVE AND CLEAR BUTTONS
+              ================================================= */}
           <div className="result-actions">
 
             <button
