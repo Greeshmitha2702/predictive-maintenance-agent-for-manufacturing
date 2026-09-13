@@ -22,7 +22,9 @@ function History() {
   return (
     <main className="dashboard">
 
-      {/* Page heading */}
+      {/* =====================================================
+          PAGE HEADING
+          ===================================================== */}
       <div className="dashboard-title">
         <p className="section-label">SAVED ANALYSES</p>
 
@@ -33,7 +35,10 @@ function History() {
         </p>
       </div>
 
-      {/* Show message when there is no history */}
+
+      {/* =====================================================
+          NO HISTORY
+          ===================================================== */}
       {history.length === 0 && (
         <section className="machine-card">
           <h3>No Saved Analyses</h3>
@@ -44,60 +49,130 @@ function History() {
         </section>
       )}
 
-      {/* Display saved analyses */}
+
+      {/* =====================================================
+          SAVED ANALYSES
+          ===================================================== */}
       {history.length > 0 && (
         <section className="history-list">
 
-          {history.map((item) => (
-            <div className="history-card" key={item.id}>
+          {history.map((item) => {
+            const result = item.result || {};
 
-              <div>
-                <p className="history-date">
-                  {item.date}
-                </p>
+            return (
+              <div
+                className="history-card"
+                key={item.id}
+              >
 
-                <h3>
-                  Machine Type: {item.result.machine.type}
-                </h3>
+                {/* =================================================
+                    MACHINE INFORMATION
+                    ================================================= */}
+                <div>
+                  <p className="history-date">
+                    {item.date}
+                  </p>
+
+                  <h3>
+                    Machine ID:{" "}
+                    {result.machine_id || "Not specified"}
+                  </h3>
+
+                  <p className="history-machine-type">
+                    Machine Type:{" "}
+                    {result.machine_type ||
+                      result.type ||
+                      "Not specified"}
+                  </p>
+                </div>
+
+
+                {/* =================================================
+                    ANALYSIS DETAILS
+                    ================================================= */}
+                <div className="history-details">
+
+                  {/* Failure Probability */}
+                  <div>
+                    <span>Failure Probability</span>
+
+                    <strong>
+                      {typeof result.failure_probability === "number"
+                        ? `${(
+                            result.failure_probability * 100
+                          ).toFixed(0)}%`
+                        : "N/A"}
+                    </strong>
+                  </div>
+
+
+                  {/* Failure Prediction */}
+                  <div>
+                    <span>Failure Prediction</span>
+
+                    <strong>
+                      {result.failure_predicted
+                        ? "Failure Predicted"
+                        : "No Failure Predicted"}
+                    </strong>
+                  </div>
+
+
+                  {/* Anomaly */}
+                  <div>
+                    <span>Anomaly</span>
+
+                    <strong>
+                      {result.is_anomaly
+                        ? "Detected"
+                        : "Normal"}
+                    </strong>
+                  </div>
+
+                </div>
+
+
+                {/* =================================================
+                    EXTRA DETAILS
+                    ================================================= */}
+                <div className="history-details">
+
+                  {/* Anomaly Score */}
+                  {result.anomaly_score !== undefined && (
+                    <div>
+                      <span>Anomaly Score</span>
+
+                      <strong>
+                        {Number(result.anomaly_score).toFixed(4)}
+                      </strong>
+                    </div>
+                  )}
+
+
+                  {/* Model Version */}
+                  {result.model_version && (
+                    <div>
+                      <span>Model</span>
+
+                      <strong>
+                        {result.model_version}
+                      </strong>
+                    </div>
+                  )}
+
+                </div>
+
               </div>
-
-              <div className="history-details">
-
-                <div>
-                  <span>Failure Probability</span>
-
-                  <strong>
-                    {(item.result.failure_prediction.probability * 100).toFixed(0)}%
-                  </strong>
-                </div>
-
-                <div>
-                  <span>Risk Level</span>
-
-                  <strong>
-                    {item.result.failure_prediction.risk_level}
-                  </strong>
-                </div>
-
-                <div>
-                  <span>Anomaly</span>
-
-                  <strong>
-                    {item.result.anomaly.is_anomaly
-                      ? "Detected"
-                      : "Normal"}
-                  </strong>
-                </div>
-
-              </div>
-
-            </div>
-          ))}
+            );
+          })}
 
         </section>
       )}
 
-      {/* Clear entire history */}
+
+      {/* =====================================================
+          CLEAR HISTORY
+          ===================================================== */}
       {history.length > 0 && (
         <button
           className="clear-history-button"
